@@ -65,6 +65,7 @@ output.log
 .env.production
 .env.staging
 config.local.py
+.env
 
 # Jupyter Notebook
 .ipynb_checkpoints
