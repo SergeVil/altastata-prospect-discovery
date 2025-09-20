@@ -506,8 +506,7 @@ Serge"""
                     'paper_title': paper_metadata.get('title', ''),
                     'paper_url': paper_metadata.get('url', ''),
                     'paper_source': paper_metadata.get('display_url', ''),
-                    'author_info': author_info,
-                    'compatibility_analysis': author_info.get('compatibility_analysis', '')
+                    'author_info': author_info
                 }
                 prospects.append(prospect)
                 print(f"  ✅ Found prospect: {author_name} ({author_info.get('title', 'Professional')})")
