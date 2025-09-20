@@ -373,19 +373,19 @@ class AISecurityPaperWorkflow:
     def _generate_connection_request(self, author_name: str, paper_title: str, 
                                    compatibility_points: List[str]) -> str:
         """Generate connection request message under 300 characters"""
-        # Create a shorter version of the paper title for the message
-        short_title = paper_title[:50] + "..." if len(paper_title) > 50 else paper_title
+        # Extract first name only
+        first_name = author_name.split()[0] if author_name else "there"
         
-        # Build the message
+        # Build the message with complete title and very concise wording
         if compatibility_points:
             points_text = ", ".join(compatibility_points[:2])  # Use top 2 points
-            message = f"Hi {author_name}, I read your article on {short_title} - your insights on {points_text} resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
+            message = f"Dear {first_name}, I read your article '{paper_title}' - your insights on {points_text} resonated with me. I'm the founder of AltaStata, an MIT startup focused on AI data security. Would love to connect. Best, Serge"
         else:
-            message = f"Hi {author_name}, I read your article on {short_title} - really insightful points about AI security. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
+            message = f"Dear {first_name}, I read your article '{paper_title}' - insightful points about AI security. I'm the founder of AltaStata, an MIT startup focused on AI data security. Would love to connect. Best, Serge"
         
-        # Ensure it's under 300 characters
+        # Ensure it's under 300 characters with even more concise wording
         if len(message) > 300:
-            message = f"Hi {author_name}, I read your article on {short_title} - your insights resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect. Best, Serge"
+            message = f"Dear {first_name}, I read your article '{paper_title}' - your insights resonated with me. I'm the founder of AltaStata, an MIT startup focused on AI data security. Would love to connect. Best, Serge"
         
         return message
     
@@ -398,28 +398,105 @@ class AISecurityPaperWorkflow:
         company = author_info.get('company', 'your company')
         title = author_info.get('title', 'Professional')
         
+        # Extract first name only
+        first_name = author_name.split()[0] if author_name else "there"
+        
+        # Extract author's specific insights from their paper using AI
+        author_insights = self._extract_author_insights_from_paper(paper_title, compatibility_analysis)
+        
         # Build the follow-up message
-        message = f"""Hi {author_name},
+        message = f"""Dear {first_name},
 
-Thanks for connecting! I read your article on "{paper_title}" - really insightful points about AI security challenges.
+Thanks for connecting! Your article points to real AI security challenges that companies are facing today.
 
 What particularly caught my attention was your emphasis on:
-• {compatibility_points[0] if len(compatibility_points) > 0 else "AI data security"}
-• {compatibility_points[1] if len(compatibility_points) > 1 else "data protection"}
-• {compatibility_points[2] if len(compatibility_points) > 2 else "enterprise AI security"}
+{author_insights}
 
-What resonated with me is how your recommendations align perfectly with what we're building at AltaStata. We're an MIT-founded startup that helps companies implement exactly the security framework you outlined.
+Your insights align perfectly with what we're building at AltaStata, an MIT startup with cutting-edge patented encryption approaches for AI data security.
 
-Your article's insights are exactly what we're helping companies implement in practice.
+I'd love to get your perspective on the AI data security landscape.
 
-Would you be open to a brief 15-minute call to discuss how we're addressing the same AI security challenges you outlined in your article?
+Would you be open to a 15-minute call?
 
 Best,
-Serge
-
-P.S. I'd love to hear your thoughts on how companies like {company} are implementing these AI security recommendations in practice."""
+Serge"""
         
         return message
+    
+    def _extract_author_insights_from_paper(self, paper_title: str, compatibility_analysis: str) -> str:
+        """Extract the author's specific insights from their paper, not AltaStata features"""
+        try:
+            # Use AI to extract the author's specific points from their paper
+            prompt = f"""
+            Based ONLY on this paper title, extract 3 specific points that the author likely emphasized in their paper.
+            
+            Paper Title: {paper_title}
+            
+            These bullet points will be used in this exact context: "What particularly caught my attention was your emphasis on:"
+            
+            Return ONLY 3 short bullet points (max 15 words each) that complete the sentence "your emphasis on: [bullet point]":
+            • [emphasis point 1]
+            • [emphasis point 2] 
+            • [emphasis point 3]
+            
+            CRITICAL INSTRUCTIONS:
+            - Each bullet point should be ONLY the content that goes after "your emphasis on:"
+            - Do NOT include "What particularly caught my attention was your emphasis on:" in the bullet points
+            - Do NOT use "the author", "explains", "discusses", "outlines", or "presents"
+            - Write direct statements about what was emphasized, not descriptions of what the paper does
+            - Focus on the paper's key emphases, NOT on any company solutions
+            - Example: If the emphasis was on "data governance", write "• data governance frameworks"
+            """
+            
+            response = self.search_agent.llm.invoke(prompt)
+            # Handle both string and object responses
+            if hasattr(response, 'content'):
+                content = response.content.strip()
+            else:
+                content = str(response).strip()
+            
+            # Clean up the response and extract bullet points
+            lines = content.split('\n')
+            bullet_points = []
+            
+            for line in lines:
+                line = line.strip()
+                # Clean up the line - remove any asterisks and extra formatting
+                line = line.replace('*', '').replace('  ', ' ').strip()
+                
+                # Skip the redundant phrase that AI sometimes includes
+                if 'what particularly caught my attention was your emphasis on:' in line.lower():
+                    continue
+                
+                # Look for bullet points
+                if line.startswith('•'):
+                    # Clean up the content after the bullet
+                    content_after_bullet = line[1:].strip()
+                    if content_after_bullet:
+                        bullet_points.append(f"• {content_after_bullet}")
+                elif line.startswith('-'):
+                    # Convert - to • and clean up
+                    content_after_dash = line[1:].strip()
+                    if content_after_dash:
+                        bullet_points.append(f"• {content_after_dash}")
+                # Skip explanatory text and short lines
+                elif line and len(line) > 15 and not any(skip in line.lower() for skip in 
+                    ['paper title', 'compatibility analysis', 'return only', 'no explanatory', 'no "the author"', 'just the insights', 'what particularly caught', 'your emphasis on']):
+                    # If it looks like an insight without bullet, add bullet
+                    if not line.startswith('[') and not line.startswith('('):
+                        bullet_points.append(f"• {line}")
+            
+            # Return the formatted insights (max 3 points)
+            if bullet_points:
+                return '\n'.join(bullet_points[:3])
+            
+        except Exception as e:
+            print(f"Error extracting author insights: {e}")
+        
+        # Fallback to generic insights
+        return """• AI security challenges you outlined
+• Data protection strategies you discussed  
+• Enterprise AI governance approaches you covered"""
     
     def _process_paper_parallel(self, paper_metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Process a single paper in parallel"""
