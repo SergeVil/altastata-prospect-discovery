@@ -220,13 +220,12 @@ class AISecurityPaperWorkflow:
                         print(f"    Skipping - not an individual author: {author_name}")
                         continue
                     
-                    # Extract compatibility analysis from author info (already done by AI)
-                    compatibility = author_data.get('compatibility_analysis', '')
+                    # No longer generating compatibility analysis - focusing on author insights only
                     
                     # Generate LinkedIn messages
                     try:
                         messages = self._generate_linkedin_messages(
-                            author_name, paper_title, compatibility, author_data
+                            author_name, paper_title, '', author_data
                         )
                         print(f"       LinkedIn messages generated: {bool(messages.get('connection_request'))}")
                     except Exception as e:
@@ -242,7 +241,6 @@ class AISecurityPaperWorkflow:
                         'paper_url': paper_url,
                         'paper_source': paper_source,
                         'author_info': author_data,
-                        'compatibility_analysis': compatibility,
                         'linkedin_messages': messages
                     }
                     generated_emails.append(result)
@@ -266,20 +264,18 @@ class AISecurityPaperWorkflow:
         return state
     
     def _generate_linkedin_messages(self, author_name: str, paper_title: str, 
-                                   compatibility_analysis: str, author_info: Dict[str, Any]) -> Dict[str, str]:
+                                  paper_url: str, author_info: Dict[str, Any]) -> Dict[str, str]:
         """Generate personalized LinkedIn connection request and follow-up messages"""
         try:
-            # Extract key compatibility points from the analysis
-            compatibility_points = self._extract_compatibility_points(compatibility_analysis)
             
             # Generate connection request message (under 300 characters)
             connection_request = self._generate_connection_request(
-                author_name, paper_title, compatibility_points
+                author_name, paper_title
             )
             
             # Generate follow-up message (under 8000 characters)
             follow_up_message = self._generate_follow_up_message(
-                author_name, paper_title, compatibility_analysis, compatibility_points, author_info
+                author_name, paper_title, paper_url, author_info
             )
             
             return {
@@ -294,104 +290,70 @@ class AISecurityPaperWorkflow:
                 'follow_up_message': f"Hi {author_name}, thanks for connecting! I read your article on {paper_title} and would love to discuss AI security challenges. Best, Serge"
             }
     
-    def _extract_compatibility_points(self, compatibility_analysis: str) -> List[str]:
-        """Extract key compatibility points from the analysis using AI"""
-        try:
-            # Use AI to extract specific, unique insights from the compatibility analysis
-            prompt = f"""
-            Extract 3 specific, unique insights from this AltaStata compatibility analysis. 
-            Focus on the most relevant and specific points that relate to the paper's content.
-            
-            Compatibility Analysis: {compatibility_analysis}
-            
-            Return ONLY 3 specific bullet points that are:
-            1. Unique to this paper's content
-            2. Specific to the challenges mentioned
-            3. Directly relevant to AltaStata's solutions
-            4. Written as short, impactful phrases (not generic terms)
-            
-            Format as a simple list, one per line:
-            - [specific insight 1]
-            - [specific insight 2] 
-            - [specific insight 3]
-            """
-            
-            response = self.search_agent.llm.invoke(prompt)
-            # Handle both string and object responses
-            if hasattr(response, 'content'):
-                content = response.content.strip()
-            else:
-                content = str(response).strip()
-            
-            # Parse the response into a list
-            points = []
-            for line in content.split('\n'):
-                line = line.strip()
-                if line.startswith('- '):
-                    points.append(line[2:].strip())
-                elif line and not line.startswith('#'):
-                    points.append(line.strip())
-            
-            # Return up to 3 points, or fallback if AI extraction fails
-            if len(points) >= 2:
-                return points[:3]
-            
-        except Exception as e:
-            print(f"Error extracting compatibility points with AI: {e}")
-        
-        # Fallback to simple keyword extraction if AI fails
-        points = []
-        analysis_lower = compatibility_analysis.lower()
-        
-        # Look for specific, unique phrases rather than generic terms
-        if "vendor risk" in analysis_lower:
-            points.append("vendor risk mitigation")
-        if "multi-source" in analysis_lower:
-            points.append("multi-source data integrity")
-        if "supply chain" in analysis_lower:
-            points.append("AI supply chain security")
-        if "privacy compliance" in analysis_lower:
-            points.append("AI privacy compliance")
-        if "model governance" in analysis_lower:
-            points.append("AI model governance")
-        if "data poisoning" in analysis_lower:
-            points.append("data poisoning prevention")
-        if "zero trust" in analysis_lower:
-            points.append("Zero Trust implementation")
-        if "encryption" in analysis_lower and "transit" in analysis_lower:
-            points.append("end-to-end encryption")
-        
-        # If still no specific points, use the first few sentences as insights
-        if not points:
-            sentences = compatibility_analysis.split('.')[:3]
-            for sentence in sentences:
-                if sentence.strip() and len(sentence.strip()) > 20:
-                    points.append(sentence.strip()[:80] + "..." if len(sentence.strip()) > 80 else sentence.strip())
-        
-        return points[:3]
     
-    def _generate_connection_request(self, author_name: str, paper_title: str, 
-                                   compatibility_points: List[str]) -> str:
-        """Generate connection request message under 300 characters"""
+    def _generate_connection_request(self, author_name: str, paper_title: str) -> str:
+        """Generate connection request message under 300 characters with complete paper title"""
+        import requests
+        from bs4 import BeautifulSoup
+        
         # Extract first name only
         first_name = author_name.split()[0] if author_name else "there"
         
-        # Build the message with complete title and very concise wording
-        if compatibility_points:
-            points_text = ", ".join(compatibility_points[:2])  # Use top 2 points
-            message = f"Dear {first_name}, I read your article '{paper_title}' - your insights on {points_text} resonated with me. I'm the founder of AltaStata, an MIT startup focused on AI data security. Would love to connect. Best, Serge"
-        else:
-            message = f"Dear {first_name}, I read your article '{paper_title}' - insightful points about AI security. I'm the founder of AltaStata, an MIT startup focused on AI data security. Would love to connect. Best, Serge"
+        # Clean the title - remove "..." if it exists and fix incomplete phrases
+        clean_title = paper_title.replace('...', '').strip()
         
-        # Ensure it's under 300 characters with even more concise wording
+        # Fix common incomplete phrases that don't make sense
+        incomplete_phrases = [
+            'and Examining',
+            'and Analyzing', 
+            'and Understanding',
+            'and Exploring',
+            'and Investigating',
+            'and Discussing',
+            'and Reviewing',
+            'and Assessing'
+        ]
+        
+        for phrase in incomplete_phrases:
+            if clean_title.endswith(phrase):
+                # Find the last complete word before the incomplete phrase
+                words = clean_title.split()
+                # Remove the last incomplete phrase
+                while words and words[-1] in phrase.split():
+                    words.pop()
+                clean_title = ' '.join(words)
+                break
+        
+        # Create concise message with clean title
+        message = f"Dear {first_name}, I read '{clean_title}' - your insights resonated with me. I'm founder of AltaStata, an MIT startup focused on AI data security. Would love to connect. Best, Serge"
+        
+        # If still over 300 chars, make it even more concise
         if len(message) > 300:
-            message = f"Dear {first_name}, I read your article '{paper_title}' - your insights resonated with me. I'm the founder of AltaStata, an MIT startup focused on AI data security. Would love to connect. Best, Serge"
+            message = f"Dear {first_name}, I read '{clean_title}' - your insights resonated with me. Founder of AltaStata, MIT startup focused on AI data security. Would love to connect. Best, Serge"
+        
+        # If still over 300 chars, smart truncate the title at word boundary
+        if len(message) > 300:
+            # Calculate how much space we have for the title
+            base_message = f"Dear {first_name}, I read '' - insights resonated with me. Founder of AltaStata, MIT startup. Would love to connect. Best, Serge"
+            max_title_length = 300 - len(base_message)
+            
+            # Smart truncate at word boundary (no "..." added)
+            if len(clean_title) > max_title_length:
+                words = clean_title.split()
+                truncated_title = ""
+                for word in words:
+                    if len(truncated_title + " " + word) <= max_title_length:
+                        truncated_title += (" " + word) if truncated_title else word
+                    else:
+                        break
+                clean_title = truncated_title
+            
+            message = f"Dear {first_name}, I read '{clean_title}' - insights resonated with me. Founder of AltaStata, MIT startup. Would love to connect. Best, Serge"
         
         return message
     
     def _generate_follow_up_message(self, author_name: str, paper_title: str, 
-                                  compatibility_analysis: str, compatibility_points: List[str],
-                                  author_info: Dict[str, Any]) -> str:
+                                  paper_url: str, author_info: Dict[str, Any]) -> str:
         """Generate follow-up message under 8000 characters"""
         
         # Extract company info
@@ -402,7 +364,7 @@ class AISecurityPaperWorkflow:
         first_name = author_name.split()[0] if author_name else "there"
         
         # Extract author's specific insights from their paper using AI
-        author_insights = self._extract_author_insights_from_paper(paper_title, compatibility_analysis)
+        author_insights = self._extract_author_insights_from_paper(paper_title, paper_url)
         
         # Build the follow-up message
         message = f"""Dear {first_name},
@@ -412,7 +374,7 @@ Thanks for connecting! Your article points to real AI security challenges that c
 What particularly caught my attention was your emphasis on:
 {author_insights}
 
-Your insights align perfectly with what we're building at AltaStata, an MIT startup with cutting-edge patented encryption approaches for AI data security.
+Your insights align perfectly with what we're building at AltaStata, an MIT startup with cutting-edge patented encryption approach for AI data security.
 
 I'd love to get your perspective on the AI data security landscape.
 
@@ -423,14 +385,18 @@ Serge"""
         
         return message
     
-    def _extract_author_insights_from_paper(self, paper_title: str, compatibility_analysis: str) -> str:
+    def _extract_author_insights_from_paper(self, paper_title: str, paper_url: str) -> str:
         """Extract the author's specific insights from their paper, not AltaStata features"""
         try:
+            # Fetch the actual article content
+            article_content = self._fetch_article_content(paper_url)
+            
             # Use AI to extract the author's specific points from their paper
             prompt = f"""
-            Based ONLY on this paper title, extract 3 specific points that the author likely emphasized in their paper.
+            Based on this paper title and content, extract 3 specific points that the author emphasized in their article.
             
             Paper Title: {paper_title}
+            Article Content (first 1000 chars): {article_content[:1000]}
             
             These bullet points will be used in this exact context: "What particularly caught my attention was your emphasis on:"
             
@@ -440,12 +406,12 @@ Serge"""
             • [emphasis point 3]
             
             CRITICAL INSTRUCTIONS:
+            - Focus on what the author ACTUALLY wrote about in their article
             - Each bullet point should be ONLY the content that goes after "your emphasis on:"
             - Do NOT include "What particularly caught my attention was your emphasis on:" in the bullet points
             - Do NOT use "the author", "explains", "discusses", "outlines", or "presents"
-            - Write direct statements about what was emphasized, not descriptions of what the paper does
-            - Focus on the paper's key emphases, NOT on any company solutions
-            - Example: If the emphasis was on "data governance", write "• data governance frameworks"
+            - Write direct statements about what the author emphasized, NOT generic business growth points
+            - Example: If the emphasis was on "data governance", write "• data governance frameworks for AI"
             """
             
             response = self.search_agent.llm.invoke(prompt)
@@ -481,7 +447,7 @@ Serge"""
                         bullet_points.append(f"• {content_after_dash}")
                 # Skip explanatory text and short lines
                 elif line and len(line) > 15 and not any(skip in line.lower() for skip in 
-                    ['paper title', 'compatibility analysis', 'return only', 'no explanatory', 'no "the author"', 'just the insights', 'what particularly caught', 'your emphasis on']):
+                    ['paper title', 'article content', 'return only', 'no explanatory', 'no "the author"', 'just the insights', 'what particularly caught', 'your emphasis on']):
                     # If it looks like an insight without bullet, add bullet
                     if not line.startswith('[') and not line.startswith('('):
                         bullet_points.append(f"• {line}")
@@ -577,40 +543,49 @@ Serge"""
         
         return max(scores) if scores else 0
     
-    def _analyze_altastata_compatibility(self, paper_analysis: Dict[str, Any], altastata_analysis: Dict[str, Any]) -> str:
-        """Analyze how the paper relates to AltaStata's solutions"""
-        paper_metadata = paper_analysis.get('paper_metadata', {})
-        paper_title = paper_metadata.get('title', '')
-        paper_snippet = paper_metadata.get('snippet', '')
-        
-        # Simple compatibility analysis based on keywords
-        text = f"{paper_title} {paper_snippet}".lower()
-        
-        compatibility_points = []
-        
-        # Check for AltaStata core technologies
-        if 'encryption' in text:
-            compatibility_points.append("- Encryption Focus: Paper discusses encryption, which is AltaStata's core technology")
-        
-        if 'zero trust' in text:
-            compatibility_points.append("- Zero Trust: Paper mentions zero trust security model, which AltaStata implements")
-        
-        if 'data integrity' in text:
-            compatibility_points.append("- Data Integrity: Paper focuses on data integrity, a key AltaStata solution area")
-        
-        if 'ai security' in text or 'artificial intelligence security' in text:
-            compatibility_points.append("- AI Security: Paper is about AI security, AltaStata's target market")
-        
-        if 'enterprise' in text or 'business' in text:
-            compatibility_points.append("- Enterprise Focus: Paper targets enterprise/business audience, AltaStata's target market")
-        
-        if 'compliance' in text or 'governance' in text:
-            compatibility_points.append("- Compliance/Governance: Paper discusses compliance/governance, areas where AltaStata provides solutions")
-        
-        if not compatibility_points:
-            compatibility_points.append("- General AI Security: Paper discusses AI security topics that could benefit from AltaStata's encryption and data integrity solutions")
-        
-        return "\n".join(compatibility_points)
+    def _fetch_article_content(self, paper_url: str) -> str:
+        """Fetch the actual article content from the URL"""
+        try:
+            import requests
+            from bs4 import BeautifulSoup
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            response = requests.get(paper_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Remove script and style elements
+            for script in soup(["script", "style"]):
+                script.decompose()
+            
+            # Try to find main content areas
+            content_selectors = [
+                'article', 'main', '.content', '.post-content', '.article-content',
+                '.entry-content', '.post-body', '[role="main"]'
+            ]
+            
+            content = ""
+            for selector in content_selectors:
+                elements = soup.select(selector)
+                if elements:
+                    content = ' '.join([elem.get_text(strip=True) for elem in elements])
+                    break
+            
+            # If no specific content area found, get all text
+            if not content:
+                content = soup.get_text(strip=True)
+            
+            # Limit content length to avoid token limits
+            return content[:3000] if len(content) > 3000 else content
+            
+        except Exception as e:
+            print(f"Error fetching article content from {paper_url}: {e}")
+            return ""
+
     
     def run_workflow(self, initial_state: Dict[str, Any] = None) -> Dict[str, Any]:
         """Run the complete workflow"""

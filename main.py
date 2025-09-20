@@ -63,7 +63,6 @@ def generate_prospects_files(results: dict, good_filename: str, other_filename: 
             paper_title = prospect.get('paper_title', '')
             paper_url = prospect.get('paper_url', '')
             paper_source = prospect.get('paper_source', '')
-            compatibility_analysis = prospect.get('compatibility_analysis', '')
             linkedin_messages = prospect.get('linkedin_messages', {})
             
             f.write(f"### **✅ Prospect {i}: {author_name}**\n")
@@ -81,13 +80,7 @@ def generate_prospects_files(results: dict, good_filename: str, other_filename: 
                 # Generate LinkedIn messages since they're missing
                 author_name = author_info.get('name', '')
                 paper_title = prospect.get('paper_title', '')
-                compatibility = prospect.get('compatibility_analysis', '')
-                
-                # Handle compatibility as string
-                if isinstance(compatibility, list):
-                    compatibility = ' '.join(str(x) for x in compatibility)
-                elif not isinstance(compatibility, str):
-                    compatibility = str(compatibility)
+                paper_url = prospect.get('paper_url', '')
                 
                 # Extract key points for connection request
                 points = []
@@ -104,13 +97,13 @@ def generate_prospects_files(results: dict, good_filename: str, other_filename: 
                 # Generate connection request (under 300 chars)
                 if points:
                     points_text = ", ".join(points[:2])
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - your insights on {points_text} resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
+                    connection_request = f"Hi {first_name}, I read your article on {paper_title} - your insights on {points_text} resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
                 else:
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - really insightful points about AI security. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
+                    connection_request = f"Hi {first_name}, I read your article on {paper_title} - really insightful points about AI security. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
                 
                 # Ensure under 300 characters
                 if len(connection_request) > 300:
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - your insights resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect. Best, Serge"
+                    connection_request = f"Hi {first_name}, I read your article on {paper_title} - your insights resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect. Best, Serge"
                 
                 # Generate follow-up message
                 company = author_info.get('company', 'your company')
@@ -145,9 +138,6 @@ P.S. I'd love to hear your thoughts on how companies like {company} are implemen
                 f.write("**📧 LinkedIn Follow-up Message:**\n")
                 f.write(f"```\n{linkedin_messages.get('follow_up_message', 'Not generated')}\n```\n\n")
             
-            if compatibility_analysis:
-                f.write("**AltaStata Compatibility Analysis:**\n")
-                f.write(f"{compatibility_analysis}\n\n")
             
             f.write("---\n\n")
         
@@ -176,9 +166,6 @@ P.S. I'd love to hear your thoughts on how companies like {company} are implemen
             f.write(f"- **Author:** {author_name}\n")
             f.write(f"- **Status:** No individual author identified\n\n")
             
-            if compatibility_analysis:
-                f.write("**AltaStata Compatibility Analysis:**\n")
-                f.write(f"{compatibility_analysis}\n\n")
             
             f.write("---\n\n")
         
@@ -277,13 +264,13 @@ def save_results_to_files(results: dict, timestamp: str):
                 # Generate connection request (under 300 chars)
                 if points:
                     points_text = ", ".join(points[:2])
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - your insights on {points_text} resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
+                    connection_request = f"Hi {first_name}, I read your article on {paper_title} - your insights on {points_text} resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
                 else:
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - really insightful points about AI security. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
+                    connection_request = f"Hi {first_name}, I read your article on {paper_title} - really insightful points about AI security. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
                 
                 # Ensure under 300 characters
                 if len(connection_request) > 300:
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - your insights resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect. Best, Serge"
+                    connection_request = f"Hi {first_name}, I read your article on {paper_title} - your insights resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect. Best, Serge"
                 
                 # Generate follow-up message
                 company = author_info.get('company', 'your company')
@@ -356,10 +343,10 @@ def _generate_linkedin_messages_inline(author_name: str, paper_title: str, compa
         # Fallback to simpler version if workflow method fails
         first_name = author_name.split()[0] if author_name else 'there'
         
-        connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - really insightful points about AI security. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
+        connection_request = f"Hi {first_name}, I read your article on {paper_title} - really insightful points about AI security. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
         
         if len(connection_request) > 300:
-            connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - your insights resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect. Best, Serge"
+            connection_request = f"Hi {first_name}, I read your article on {paper_title} - your insights resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect. Best, Serge"
         
         company = author_info.get('company', 'your company')
         if not company or company == 'Not specified':
@@ -420,15 +407,6 @@ def generate_enhanced_prospects_file(results: dict, filename: str):
             f.write(f"- **Paper URL:** {paper_url}\n")
             f.write(f"- **Source:** {paper_source}\n\n")
             
-            # Add AltaStata compatibility analysis
-            if compatibility_analysis:
-                f.write("**🔍 AltaStata Compatibility Analysis:**\n")
-                # Handle both string and list formats
-                if isinstance(compatibility_analysis, list):
-                    compatibility_analysis = ' '.join(str(x) for x in compatibility_analysis)
-                # Clean up formatting - replace * with - and remove ** bold formatting
-                cleaned_analysis = compatibility_analysis.replace("*   ", "- ").replace("**", "").replace("*", "-")
-                f.write(f"{cleaned_analysis}\n\n")
             
             # Add LinkedIn messages
             f.write("**🔗 LinkedIn Connection Request:**\n")
@@ -485,16 +463,6 @@ def generate_other_prospects_file(results: dict, filename: str, timestamp: str):
                 f.write(f"- **Paper URL:** {prospect.get('paper_url', '')}\n")
                 f.write(f"- **Source:** {prospect.get('paper_source', '')}\n\n")
                 
-                # Add AltaStata compatibility analysis
-                compatibility = prospect.get('compatibility_analysis', '')
-                if compatibility:
-                    f.write("**🔍 AltaStata Compatibility Analysis:**\n")
-                    # Handle both string and list formats
-                    if isinstance(compatibility, list):
-                        compatibility = ' '.join(str(x) for x in compatibility)
-                    # Clean up formatting - replace * with - and remove ** bold formatting
-                    cleaned_compatibility = compatibility.replace("*   ", "- ").replace("**", "").replace("*", "-")
-                    f.write(f"{cleaned_compatibility}\n\n")
                 
                 f.write("---\n\n")
 

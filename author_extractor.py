@@ -78,7 +78,6 @@ class AuthorExtractor:
                     'linkedin_profile': '',
                     'email': '',
                     'profile_summary': '',
-                    'compatibility_analysis': '',
                     'source': urlparse(url).netloc.lower(),
                     'is_individual': False,
                     'all_authors': []
@@ -93,7 +92,6 @@ class AuthorExtractor:
                 'linkedin_profile': '',
                 'email': '',
                 'profile_summary': '',
-                'compatibility_analysis': '',
                 'source': urlparse(url).netloc.lower(),
                 'is_individual': False,
                 'all_authors': []
@@ -339,7 +337,6 @@ class AuthorExtractor:
                     "linkedin_profile": "EXACT LinkedIn profile URL from LINKEDIN_URLS_FOUND section (do not generate or construct URLs)",
                     "email": "Author's email address",
                     "profile_summary": "Brief author bio",
-                    "compatibility_analysis": "Brief analysis of how this article relates to AltaStata's AI security solutions. Focus on key pain points and how AltaStata's encryption, data integrity, and zero-trust security could help. Keep it concise with 2-3 bullet points using simple dashes (-) not asterisks (*) or bold formatting (**)."
                 }},
                 {{
                     "name": "Full Name of Individual Author 2",
@@ -348,7 +345,6 @@ class AuthorExtractor:
                     "linkedin_profile": "EXACT LinkedIn profile URL from LINKEDIN_URLS_FOUND section (do not generate or construct URLs)",
                     "email": "Author's email address",
                     "profile_summary": "Brief author bio",
-                    "compatibility_analysis": "Brief analysis of how this article relates to AltaStata's AI security solutions. Focus on key pain points and how AltaStata's encryption, data integrity, and zero-trust security could help. Keep it concise with 2-3 bullet points using simple dashes (-) not asterisks (*) or bold formatting (**)."
                 }}
             ]
 
@@ -390,7 +386,6 @@ class AuthorExtractor:
                                 'linkedin_profile': author.get('linkedin_profile', '').strip(),
                                 'email': author.get('email', '').strip(),
                                 'profile_summary': author.get('profile_summary', '').strip(),
-                                'compatibility_analysis': author.get('compatibility_analysis', '').strip()
                             }
                             valid_authors.append(clean_author)
                     
@@ -442,7 +437,6 @@ class AuthorExtractor:
             'linkedin_profile': '',
             'email': '',
             'profile_summary': '',
-            'compatibility_analysis': ''
         }
         
         try:
@@ -494,7 +488,6 @@ class AuthorExtractor:
                 "linkedin_profile": "EXACT LinkedIn profile URL from LINKEDIN_URLS_FOUND section (do not generate or construct URLs)",
                 "email": "Author's email address",
                 "profile_summary": "Brief author bio",
-                "compatibility_analysis": "Brief analysis of how this article relates to AltaStata's AI security solutions. Focus on key pain points and how AltaStata's encryption, data integrity, and zero-trust security could help. Keep it concise with 2-3 bullet points."
             }}
 
             If no individual author is found, return:
