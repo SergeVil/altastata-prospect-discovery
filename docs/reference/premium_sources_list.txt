@@ -1,0 +1,119 @@
+PREMIUM BUSINESS SOURCES FOR CUSTOM SEARCH ENGINE
+=================================================
+Add these domains to your Google Custom Search Engine at:
+https://programmablesearchengine.google.com/controlpanel/overview?cx=b5a45e4ce99ac4243
+
+📊 INDUSTRY ANALYSTS & RESEARCH FIRMS
+=====================================
+gartner.com                 - Leading IT research and advisory firm
+forrester.com              - Technology and business strategy insights  
+idc.com                     - Market intelligence and technology analysis
+451research.com             - Technology industry analysis
+ovum.com                    - Technology research and consulting
+canalys.com                 - Technology market analysis
+omdia.com                   - Technology intelligence and analytics
+
+💼 PROFESSIONAL NETWORKS & THOUGHT LEADERSHIP
+=============================================
+linkedin.com                - Executive insights and professional content
+
+📰 BUSINESS MEDIA & PUBLICATIONS
+=================================
+forbes.com                  - Business magazine and entrepreneurship
+hbr.org                     - Harvard Business Review
+wired.com                   - Technology and digital culture
+reuters.com                 - Global financial and business news
+bloomberg.com               - Financial markets and business news
+wsj.com                     - Wall Street Journal
+ft.com                      - Financial Times
+techcrunch.com              - Technology startup and business news
+venturebeat.com             - Technology business news
+zdnet.com                   - Enterprise technology news
+computerworld.com           - IT and business technology
+infoworld.com               - Enterprise technology insights
+cio.com                     - Chief Information Officer insights
+csoonline.com               - Cybersecurity and IT security news
+
+🏢 CONSULTING FIRMS & PROFESSIONAL SERVICES
+===========================================
+mckinsey.com                - Global management consulting insights
+deloitte.com                - Professional services and industry insights
+pwc.com                     - Business consulting and research
+ey.com                      - Ernst & Young business insights
+bcg.com                     - Boston Consulting Group
+accenture.com               - Technology and business consulting
+kpmg.com                    - Professional services insights
+bain.com                    - Bain & Company strategic insights
+
+🎓 ACADEMIC & RESEARCH INSTITUTIONS
+===================================
+mit.edu                     - MIT research and insights
+harvard.edu                 - Harvard research publications
+stanford.edu                - Stanford research
+berkeley.edu                - UC Berkeley research
+cmu.edu                     - Carnegie Mellon University
+princeton.edu               - Princeton University
+columbia.edu                - Columbia University
+yale.edu                    - Yale University
+oxford.ac.uk                - Oxford University
+cambridge.ac.uk             - Cambridge University
+
+🏛️ GOVERNMENT & REGULATORY SOURCES
+===================================
+nist.gov                    - National Institute of Standards and Technology
+sec.gov                     - Securities and Exchange Commission
+ftc.gov                     - Federal Trade Commission
+cisa.gov                    - Cybersecurity and Infrastructure Security Agency
+whitehouse.gov              - White House technology policy
+congress.gov                - Congressional research and reports
+
+🔒 CYBERSECURITY & AI SECURITY SPECIALISTS
+==========================================
+darkreading.com             - Cybersecurity news and analysis
+securityweek.com            - Information security news
+infosecurity-magazine.com   - Information security insights
+cybersecuritydive.com       - Cybersecurity business news
+scmagazine.com              - Security and compliance news
+threatpost.com              - Cybersecurity threat intelligence
+krebs.com                   - Cybersecurity investigations
+schneier.com                - Security technologist insights
+
+🌐 INTERNATIONAL BUSINESS SOURCES
+=================================
+economist.com               - Global business and economic analysis
+businessinsider.com         - Business news and analysis
+fortune.com                 - Fortune 500 and business leadership
+fastcompany.com             - Innovation and business strategy
+inc.com                     - Entrepreneurship and small business
+entrepreneur.com            - Business and startup insights
+
+PRIORITY RECOMMENDATIONS FOR AI SECURITY FOCUS:
+===============================================
+1. **MUST ADD (Highest Priority):**
+   - gartner.com, forrester.com, idc.com
+   - linkedin.com
+   - deloitte.com, mckinsey.com, pwc.com
+   - forbes.com, hbr.org
+
+2. **SHOULD ADD (High Priority):**
+   - wired.com, reuters.com, bloomberg.com
+   - mit.edu, stanford.edu, harvard.edu
+   - darkreading.com, securityweek.com
+   - cio.com, csoonline.com
+
+3. **NICE TO HAVE (Medium Priority):**
+   - All remaining consulting firms
+   - Additional academic institutions
+   - Government/regulatory sources
+   - International business sources
+
+CONFIGURATION INSTRUCTIONS:
+===========================
+1. Go to: https://programmablesearchengine.google.com/controlpanel/overview?cx=b5a45e4ce99ac4243
+2. Click "Sites to search" in the left menu
+3. Add each domain from the priority lists above
+4. Set search preference to "Search only included sites"
+5. Test with the validation script: python validate_sources.py
+
+This will ensure your AltaStata Prospect Discovery system finds high-quality 
+business intelligence content perfect for prospect discovery and sales conversations.
