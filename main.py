@@ -7,9 +7,81 @@ from datetime import datetime
 from workflow import AISecurityPaperWorkflow
 import config
 
+# ============================================================================
+# CENTRALIZED HELPER FUNCTIONS TO ELIMINATE CODE DUPLICATION
+# ============================================================================
+
+def generate_linkedin_messages(author_name: str, paper_title: str, paper_url: str, author_info: dict) -> dict:
+    """Centralized LinkedIn message generation to eliminate code duplication"""
+    try:
+        workflow = AISecurityPaperWorkflow()
+        return workflow._generate_linkedin_messages(author_name, paper_title, paper_url, author_info)
+    except Exception as e:
+        print(f"Error generating LinkedIn messages for {author_name}: {e}")
+        
+        # Fallback generation
+        first_name = author_name.split()[0] if author_name else 'there'
+        
+        connection_request = f"Hi {first_name}, I read your article on {paper_title} - really insightful points about AI security. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
+        
+        if len(connection_request) > 300:
+            connection_request = f"Hi {first_name}, I read your article on {paper_title} - your insights resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect. Best, Serge"
+        
+        company = author_info.get('company', 'your organization')
+        if not company or company == 'Not specified':
+            company = 'your organization'
+        
+        follow_up_message = f"""Hi {first_name},
+
+Thanks for connecting! I read your article on "{paper_title}" - really insightful points about AI security challenges.
+
+What resonated with me is how your recommendations align perfectly with what we're building at AltaStata. We're an MIT-founded startup that helps companies implement exactly the security framework you outlined.
+
+Would you be open to a brief 15-minute call to discuss how we're addressing the same AI security challenges you outlined in your article?
+
+Best,
+Serge
+
+P.S. I'd love to hear your thoughts on how companies like {company} are implementing these AI security recommendations in practice."""
+
+        return {
+            'connection_request': connection_request,
+            'follow_up_message': follow_up_message
+        }
+
+def write_prospect_file_header(f, title: str, count: int):
+    """Write standardized header for prospect files"""
+    f.write(f"# 🎯 {title}\n")
+    f.write(f"## Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}\n\n")
+    f.write(f"**Total: {count} prospects with individual authors**\n\n")
+
+def write_prospect_info(f, prospect_num: int, author_info: dict, paper_title: str, paper_url: str, paper_source: str):
+    """Write standardized prospect information"""
+    author_name = author_info.get('name', 'Unknown')
+    f.write(f"### **✅ Prospect {prospect_num}: {author_name}**\n")
+    f.write(f"- **Name:** {author_name}\n")
+    f.write(f"- **Title:** {author_info.get('title', '')}\n")
+    f.write(f"- **Company:** {author_info.get('company', '')}\n")
+    f.write(f"- **LinkedIn Profile:** {author_info.get('linkedin_profile', 'Not found')}\n")
+    f.write(f"- **Email:** {author_info.get('email', '')}\n")
+    f.write(f"- **Paper:** \"{paper_title}\"\n")
+    f.write(f"- **Paper URL:** {paper_url}\n")
+    f.write(f"- **Source:** {paper_source}\n\n")
+
+def write_linkedin_messages(f, linkedin_messages: dict):
+    """Write LinkedIn messages to file"""
+    f.write("**🔗 LinkedIn Connection Request:**\n")
+    f.write(f"```\n{linkedin_messages.get('connection_request', 'Not generated')}\n```\n\n")
+    f.write("**📧 LinkedIn Follow-up Message:**\n")
+    f.write(f"```\n{linkedin_messages.get('follow_up_message', 'Not generated')}\n```\n\n")
+
+# ============================================================================
+# MAIN FUNCTIONS
+# ============================================================================
+
 def generate_prospects_files(results: dict, good_filename: str, other_filename: str, timestamp: str):
     """Generate separate markdown files for good prospects (with LinkedIn) and other prospects"""
-    prospects = results.get('generated_emails', [])
+    prospects = results.get('prospects', [])
     
     if not prospects:
         print("No prospects found to generate files")
@@ -63,7 +135,6 @@ def generate_prospects_files(results: dict, good_filename: str, other_filename: 
             paper_title = prospect.get('paper_title', '')
             paper_url = prospect.get('paper_url', '')
             paper_source = prospect.get('paper_source', '')
-            compatibility_analysis = prospect.get('compatibility_analysis', '')
             linkedin_messages = prospect.get('linkedin_messages', {})
             
             f.write(f"### **✅ Prospect {i}: {author_name}**\n")
@@ -76,66 +147,12 @@ def generate_prospects_files(results: dict, good_filename: str, other_filename: 
             f.write(f"- **Paper URL:** {paper_url}\n")
             f.write(f"- **Source:** {paper_source}\n\n")
             
-            # Add LinkedIn messages (generate if missing)
+            # Add LinkedIn messages (generate if missing using centralized function)
             if not linkedin_messages or not linkedin_messages.get('connection_request'):
-                # Generate LinkedIn messages since they're missing
                 author_name = author_info.get('name', '')
                 paper_title = prospect.get('paper_title', '')
-                compatibility = prospect.get('compatibility_analysis', '')
-                
-                # Handle compatibility as string
-                if isinstance(compatibility, list):
-                    compatibility = ' '.join(str(x) for x in compatibility)
-                elif not isinstance(compatibility, str):
-                    compatibility = str(compatibility)
-                
-                # Extract key points for connection request
-                points = []
-                if "encryption" in compatibility.lower():
-                    points.append("encryption")
-                if "zero-trust" in compatibility.lower() or "zero trust" in compatibility.lower():
-                    points.append("Zero Trust")
-                if "data integrity" in compatibility.lower():
-                    points.append("data integrity")
-                
-                # Get first name only
-                first_name = author_name.split()[0] if author_name else author_name
-                
-                # Generate connection request (under 300 chars)
-                if points:
-                    points_text = ", ".join(points[:2])
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - your insights on {points_text} resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
-                else:
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - really insightful points about AI security. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
-                
-                # Ensure under 300 characters
-                if len(connection_request) > 300:
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - your insights resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect. Best, Serge"
-                
-                # Generate follow-up message
-                company = author_info.get('company', 'your company')
-                if not company or company == 'Not specified':
-                    company = 'your organization'
-                
-                follow_up_message = f"""Hi {first_name},
-
-Thanks for connecting! I read your article on "{paper_title}" - really insightful points about AI security challenges.
-
-{compatibility}
-
-What resonated with me is how your recommendations align perfectly with what we're building at AltaStata. We're an MIT-founded startup that helps companies implement exactly the security framework you outlined.
-
-Would you be open to a brief 15-minute call to discuss how we're addressing the same AI security challenges you outlined in your article?
-
-Best,
-Serge
-
-P.S. I'd love to hear your thoughts on how companies like {company} are implementing these AI security recommendations in practice."""
-
-                linkedin_messages = {
-                    'connection_request': connection_request,
-                    'follow_up_message': follow_up_message
-                }
+                paper_url = prospect.get('paper_url', '')
+                linkedin_messages = generate_linkedin_messages(author_name, paper_title, paper_url, author_info)
             
             # Now write the LinkedIn messages
             if linkedin_messages:
@@ -145,9 +162,6 @@ P.S. I'd love to hear your thoughts on how companies like {company} are implemen
                 f.write("**📧 LinkedIn Follow-up Message:**\n")
                 f.write(f"```\n{linkedin_messages.get('follow_up_message', 'Not generated')}\n```\n\n")
             
-            if compatibility_analysis:
-                f.write("**AltaStata Compatibility Analysis:**\n")
-                f.write(f"{compatibility_analysis}\n\n")
             
             f.write("---\n\n")
         
@@ -169,16 +183,13 @@ P.S. I'd love to hear your thoughts on how companies like {company} are implemen
             author_name = author_info.get('name', 'No individual author found')
             compatibility_analysis = paper.get('compatibility_analysis', '')
             
-            f.write(f"### **📄 Paper {i}: {paper_title[:60]}...**\n")
+            f.write(f"### **📄 Paper {i}: {paper_title}**\n")
             f.write(f"- **Paper Title:** {paper_title}\n")
             f.write(f"- **Paper URL:** {paper_url}\n")
             f.write(f"- **Source:** {paper_source}\n")
             f.write(f"- **Author:** {author_name}\n")
             f.write(f"- **Status:** No individual author identified\n\n")
             
-            if compatibility_analysis:
-                f.write("**AltaStata Compatibility Analysis:**\n")
-                f.write(f"{compatibility_analysis}\n\n")
             
             f.write("---\n\n")
         
@@ -244,68 +255,18 @@ def save_results_to_files(results: dict, timestamp: str):
     print(f"📄 Complete results saved to: {json_filename}")
     
     # Save prospects as CSV for easy review
-    if results.get('generated_emails'):  # Keep the same key for compatibility
+    if results.get('prospects'):
         prospects_data = []
-        for prospect in results['generated_emails']:
+        for prospect in results['prospects']:
             author_info = prospect.get('author_info', {})
             linkedin_messages = prospect.get('linkedin_messages', {})
             
-            # Generate LinkedIn messages if missing
+            # Generate LinkedIn messages if missing using centralized function
             if not linkedin_messages or not linkedin_messages.get('connection_request'):
                 author_name = author_info.get('name', '')
                 paper_title = prospect.get('paper_title', '')
-                compatibility = prospect.get('compatibility_analysis', '')
-                
-                # Handle compatibility as string
-                if isinstance(compatibility, list):
-                    compatibility = ' '.join(str(x) for x in compatibility)
-                elif not isinstance(compatibility, str):
-                    compatibility = str(compatibility)
-                
-                # Extract key points for connection request
-                points = []
-                if "encryption" in compatibility.lower():
-                    points.append("encryption")
-                if "zero-trust" in compatibility.lower() or "zero trust" in compatibility.lower():
-                    points.append("Zero Trust")
-                if "data integrity" in compatibility.lower():
-                    points.append("data integrity")
-                
-                # Get first name only
-                first_name = author_name.split()[0] if author_name else author_name
-                
-                # Generate connection request (under 300 chars)
-                if points:
-                    points_text = ", ".join(points[:2])
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - your insights on {points_text} resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
-                else:
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - really insightful points about AI security. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
-                
-                # Ensure under 300 characters
-                if len(connection_request) > 300:
-                    connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - your insights resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect. Best, Serge"
-                
-                # Generate follow-up message
-                company = author_info.get('company', 'your company')
-                follow_up_message = f"""Hi {first_name},
-
-Thanks for connecting! I read your article on "{paper_title}" - really insightful points about AI security challenges.
-
-{compatibility}
-
-What resonated with me is how your recommendations align perfectly with what we're building at AltaStata. We're an MIT-founded startup that helps companies implement exactly the security framework you outlined.
-
-Would you be open to a brief 15-minute call to discuss how we're addressing the same AI security challenges you outlined in your article?
-
-Best,
-Serge
-
-P.S. I'd love to hear your thoughts on how companies like {company} are implementing these AI security recommendations in practice."""
-
-                linkedin_messages = {
-                    'connection_request': connection_request,
-                    'follow_up_message': follow_up_message
-                }
+                paper_url = prospect.get('paper_url', '')
+                linkedin_messages = generate_linkedin_messages(author_name, paper_title, paper_url, author_info)
             
             prospects_data.append({
                 'author_name': author_info.get('name', ''),
@@ -337,67 +298,17 @@ P.S. I'd love to hear your thoughts on how companies like {company} are implemen
             generate_other_prospects_file(results, other_prospects_filename, timestamp)
             print(f"📋 Other prospects (need manual research) saved to: {other_prospects_filename}")
 
-def _generate_linkedin_messages_inline(author_name: str, paper_title: str, compatibility_analysis: str, author_info: dict) -> dict:
-    """Generate LinkedIn connection and follow-up messages based on paper content"""
-    from workflow import AISecurityPaperWorkflow
-    
-    # Handle both string and list formats for compatibility_analysis
-    if isinstance(compatibility_analysis, list):
-        compatibility_analysis = ' '.join(str(x) for x in compatibility_analysis)
-    
-    # Create a workflow instance to use the proper LinkedIn message generation
-    workflow = AISecurityPaperWorkflow()
-    
-    # Use the original sophisticated LinkedIn message generation
-    try:
-        return workflow._generate_linkedin_messages(author_name, paper_title, compatibility_analysis, author_info)
-    except Exception as e:
-        print(f"Error generating LinkedIn messages for {author_name}: {e}")
-        # Fallback to simpler version if workflow method fails
-        first_name = author_name.split()[0] if author_name else 'there'
-        
-        connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - really insightful points about AI security. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect and exchange ideas. Best, Serge"
-        
-        if len(connection_request) > 300:
-            connection_request = f"Hi {first_name}, I read your article on {paper_title[:50]} - your insights resonated with me. I'm working with AltaStata, an MIT-founded startup focused on AI data security. Would love to connect. Best, Serge"
-        
-        company = author_info.get('company', 'your company')
-        if not company or company == 'Not specified':
-            company = 'your organization'
-        
-        follow_up_message = f"""Hi {first_name},
-
-Thanks for connecting! I read your article on "{paper_title}" - really insightful points about AI security challenges.
-
-{compatibility_analysis}
-
-What resonated with me is how your recommendations align perfectly with what we're building at AltaStata. We're an MIT-founded startup that helps companies implement exactly the security framework you outlined.
-
-Would you be open to a brief 15-minute call to discuss how we're addressing the same AI security challenges you outlined in your article?
-
-Best,
-Serge
-
-P.S. I'd love to hear your thoughts on how companies like {company} are implementing these AI security recommendations in practice."""
-
-        return {
-            'connection_request': connection_request,
-            'follow_up_message': follow_up_message
-        }
 
 def generate_enhanced_prospects_file(results: dict, filename: str):
-    """Generate enhanced markdown file with guaranteed LinkedIn messages"""
-    
-    prospects = results.get('generated_emails', [])
+    """Generate enhanced markdown file with guaranteed LinkedIn messages - REFACTORED"""
+    prospects = results.get('prospects', [])
     
     if not prospects:
         print("No prospects found for enhanced file!")
         return
     
     with open(filename, 'w', encoding='utf-8') as f:
-        f.write("# 🎯 Good Prospects - With LinkedIn Messages\n")
-        f.write(f"## Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}\n\n")
-        f.write(f"**Total: {len(prospects)} prospects with individual authors**\n\n")
+        write_prospect_file_header(f, "Good Prospects - With LinkedIn Messages", len(prospects))
         
         for i, prospect in enumerate(prospects, 1):
             author_info = prospect.get('author_info', {})
@@ -405,43 +316,21 @@ def generate_enhanced_prospects_file(results: dict, filename: str):
             paper_title = prospect.get('paper_title', '')
             paper_url = prospect.get('paper_url', '')
             paper_source = prospect.get('paper_source', '')
-            compatibility_analysis = prospect.get('compatibility_analysis', '')
             
-            # Generate LinkedIn messages inline
-            linkedin_messages = _generate_linkedin_messages_inline(author_name, paper_title, compatibility_analysis, author_info)
+            # Use centralized LinkedIn message generation
+            linkedin_messages = generate_linkedin_messages(author_name, paper_title, paper_url, author_info)
             
-            f.write(f"### **✅ Prospect {i}: {author_name}**\n")
-            f.write(f"- **Name:** {author_name}\n")
-            f.write(f"- **Title:** {author_info.get('title', '')}\n")
-            f.write(f"- **Company:** {author_info.get('company', '')}\n")
-            f.write(f"- **LinkedIn Profile:** {author_info.get('linkedin_profile', 'Not found')}\n")
-            f.write(f"- **Email:** {author_info.get('email', '')}\n")
-            f.write(f"- **Paper:** \"{paper_title}\"\n")
-            f.write(f"- **Paper URL:** {paper_url}\n")
-            f.write(f"- **Source:** {paper_source}\n\n")
+            # Use centralized prospect info writing
+            write_prospect_info(f, i, author_info, paper_title, paper_url, paper_source)
             
-            # Add AltaStata compatibility analysis
-            if compatibility_analysis:
-                f.write("**🔍 AltaStata Compatibility Analysis:**\n")
-                # Handle both string and list formats
-                if isinstance(compatibility_analysis, list):
-                    compatibility_analysis = ' '.join(str(x) for x in compatibility_analysis)
-                # Clean up formatting - replace * with - and remove ** bold formatting
-                cleaned_analysis = compatibility_analysis.replace("*   ", "- ").replace("**", "").replace("*", "-")
-                f.write(f"{cleaned_analysis}\n\n")
-            
-            # Add LinkedIn messages
-            f.write("**🔗 LinkedIn Connection Request:**\n")
-            f.write(f"```\n{linkedin_messages['connection_request']}\n```\n\n")
-            
-            f.write("**📧 LinkedIn Follow-up Message:**\n")
-            f.write(f"```\n{linkedin_messages['follow_up_message']}\n```\n\n")
+            # Use centralized LinkedIn messages writing
+            write_linkedin_messages(f, linkedin_messages)
             
             f.write("---\n\n")
 
 def generate_other_prospects_file(results: dict, filename: str, timestamp: str):
     """Generate markdown file for papers without individual authors"""
-    prospects = results.get('generated_emails', [])
+    prospects = results.get('prospects', [])
     papers_analyzed = results.get('papers_analyzed', [])
     
     # Find papers without individual authors
@@ -485,16 +374,6 @@ def generate_other_prospects_file(results: dict, filename: str, timestamp: str):
                 f.write(f"- **Paper URL:** {prospect.get('paper_url', '')}\n")
                 f.write(f"- **Source:** {prospect.get('paper_source', '')}\n\n")
                 
-                # Add AltaStata compatibility analysis
-                compatibility = prospect.get('compatibility_analysis', '')
-                if compatibility:
-                    f.write("**🔍 AltaStata Compatibility Analysis:**\n")
-                    # Handle both string and list formats
-                    if isinstance(compatibility, list):
-                        compatibility = ' '.join(str(x) for x in compatibility)
-                    # Clean up formatting - replace * with - and remove ** bold formatting
-                    cleaned_compatibility = compatibility.replace("*   ", "- ").replace("**", "").replace("*", "-")
-                    f.write(f"{cleaned_compatibility}\n\n")
                 
                 f.write("---\n\n")
 
@@ -506,7 +385,7 @@ def print_summary(results: dict):
     
     papers_found = len(results.get('papers_found', []))
     papers_analyzed = len(results.get('papers_analyzed', []))
-    prospects_found = len(results.get('generated_emails', []))
+    prospects_found = len(results.get('prospects', []))
     
     print(f"Papers Found: {papers_found}")
     print(f"Papers Analyzed: {papers_analyzed}")
@@ -518,7 +397,7 @@ def print_summary(results: dict):
     print("\n🎯 FOUND PROSPECTS:")
     print("-" * 40)
     
-    for i, prospect in enumerate(results.get('generated_emails', []), 1):
+    for i, prospect in enumerate(results.get('prospects', []), 1):
         author_info = prospect.get('author_info', {})
         linkedin_messages = prospect.get('linkedin_messages', {})
         
@@ -526,7 +405,7 @@ def print_summary(results: dict):
         print(f"   Title: {author_info.get('title', 'Professional')}")
         print(f"   Company: {author_info.get('company', 'Not specified')}")
         print(f"   LinkedIn: {author_info.get('linkedin_profile', 'Not found')}")
-        print(f"   Paper: {prospect.get('paper_title', '')[:60]}...")
+        print(f"   Paper: {prospect.get('paper_title', '')}")
         print(f"   Source: {prospect.get('paper_source', '')}")
         
         # Show LinkedIn messages if available

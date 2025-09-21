@@ -41,12 +41,13 @@ BUSINESS_KEYWORDS = [
 SECURITY_THEMES = [
     "AI External Partners Trust",
     "AI Data Integrity", 
-    "Efficient AI Security",
     "AI Supply Chain Security",
     "AI Model Governance",
-    "AI Privacy Compliance",
+    "AI Privacy",
+    "AI Compliance",
     "AI Third Party Risk",
     "AI Vendor Security",
+    "AI Data Center Security",
     "AI Data Lineage"
 ]
 
