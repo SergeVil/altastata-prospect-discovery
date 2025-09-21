@@ -1,14 +1,11 @@
 """
-LangGraph workflow for AI security paper analysis and email generation
+LangGraph workflow for AI security paper analysis and prospect discovery
 """
 from typing import Dict, Any, List, TypedDict
 from langgraph.graph import StateGraph, END
 from agents.search_agent import SearchAgent
 from agents.analysis_agent import AnalysisAgent
-from agents.email_agent import EmailAgent
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import time
-import random
 import config
 
 class WorkflowState(TypedDict):
@@ -17,7 +14,7 @@ class WorkflowState(TypedDict):
     papers_found: List[Dict[str, Any]]
     papers_analyzed: List[Dict[str, Any]]
     altastata_analysis: Dict[str, Any]
-    generated_emails: List[Dict[str, Any]]
+    prospects: List[Dict[str, Any]]
     current_step: str
     error_message: str
 
@@ -25,7 +22,6 @@ class AISecurityPaperWorkflow:
     def __init__(self):
         self.search_agent = SearchAgent()
         self.analysis_agent = AnalysisAgent()
-        self.email_agent = EmailAgent()
         self.workflow = self._create_workflow()
     
     def _create_workflow(self) -> StateGraph:
@@ -143,7 +139,7 @@ class AISecurityPaperWorkflow:
                             "paper_metadata": processed_paper,
                             "ai_data_integrity": {"relevance_score": 5, "discussion_points": {}},
                             "external_partners_trust": {"relevance_score": 5, "discussion_points": {}},
-                            "efficient_ai_use": {"relevance_score": 5, "discussion_points": {}}
+                            "ai_data_center_security": {"relevance_score": 5, "discussion_points": {}}
                         }
                         analyzed_papers.append(analysis)
                         
@@ -158,7 +154,7 @@ class AISecurityPaperWorkflow:
                             "paper_metadata": paper,
                             "ai_data_integrity": {"relevance_score": 5, "discussion_points": {}},
                             "external_partners_trust": {"relevance_score": 5, "discussion_points": {}},
-                            "efficient_ai_use": {"relevance_score": 5, "discussion_points": {}}
+                            "ai_data_center_security": {"relevance_score": 5, "discussion_points": {}}
                         }
                         analyzed_papers.append(analysis)
             
@@ -170,96 +166,6 @@ class AISecurityPaperWorkflow:
             print(f"Error in paper analysis: {e}")
             state["error_message"] = f"Paper analysis error: {e}"
             state["papers_analyzed"] = analyzed_papers  # Keep partial results
-        
-        return state
-    
-    def _generate_emails_node(self, state: WorkflowState) -> WorkflowState:
-        """Generate personalized emails based on paper analysis"""
-        print("✉️ Generating personalized emails...")
-        
-        papers_analyzed = state.get("papers_analyzed", [])
-        altastata_analysis = state.get("altastata_analysis", {})
-        
-        try:
-            # Take all papers for email generation
-            relevant_papers = papers_analyzed
-            
-            print(f"  Generating emails for {len(relevant_papers)} relevant papers")
-            
-            generated_emails = []
-            
-            for i, paper_analysis in enumerate(relevant_papers):
-                print(f"  Processing paper {i+1}/{len(relevant_papers)}: {paper_analysis.get('paper_metadata', {}).get('title', '')[:60]}...")
-                
-                # Extract paper details
-                paper_metadata = paper_analysis.get('paper_metadata', {})
-                paper_title = paper_metadata.get('title', '')
-                paper_url = paper_metadata.get('url', '')
-                paper_source = paper_metadata.get('display_url', '')
-                # Get all authors from the paper
-                author_info = paper_metadata.get('author_info', {})
-                all_authors = author_info.get('all_authors', [])
-                
-                # If no all_authors field, fall back to single author
-                if not all_authors:
-                    author_name = author_info.get('name', '')
-                    if author_name and self.search_agent.author_extractor._is_individual_author(author_name):
-                        all_authors = [author_info]
-                
-                # Process each author
-                for author_data in all_authors:
-                    author_name = author_data.get('name', '')
-                    
-                    # Skip if no individual author name
-                    if not author_name:
-                        print(f"    Skipping - no individual author name found")
-                        continue
-                    
-                    # Use the author extractor's validation method
-                    if not self.search_agent.author_extractor._is_individual_author(author_name):
-                        print(f"    Skipping - not an individual author: {author_name}")
-                        continue
-                    
-                    # No longer generating compatibility analysis - focusing on author insights only
-                    
-                    # Generate LinkedIn messages
-                    try:
-                        messages = self._generate_linkedin_messages(
-                            author_name, paper_title, '', author_data
-                        )
-                        print(f"       LinkedIn messages generated: {bool(messages.get('connection_request'))}")
-                    except Exception as e:
-                        print(f"       ERROR generating LinkedIn messages: {e}")
-                        messages = {
-                            'connection_request': f"Hi {author_name}, I read your article on {paper_title} - would love to connect and discuss AI security challenges. Best, Serge",
-                            'follow_up_message': f"Hi {author_name}, thanks for connecting! I read your article on {paper_title} and would love to discuss AI security challenges. Best, Serge"
-                        }
-                    
-                    # Create result
-                    result = {
-                        'paper_title': paper_title,
-                        'paper_url': paper_url,
-                        'paper_source': paper_source,
-                        'author_info': author_data,
-                        'linkedin_messages': messages
-                    }
-                    generated_emails.append(result)
-                    
-                    # Output result immediately
-                    print(f"    ✅ Found prospect: {author_name} ({author_data.get('title', 'Professional')})")
-                    print(f"       Company: {author_data.get('company', 'Not specified')}")
-                    print(f"       LinkedIn: {author_data.get('linkedin_profile', 'Not found - needs manual search')}")
-                    print(f"       Source: {paper_source}")
-                    print()
-            
-            state["generated_emails"] = generated_emails
-            state["current_step"] = "emails_generated"
-            print(f"  Generated {len(generated_emails)} personalized emails")
-            
-        except Exception as e:
-            print(f"Error in email generation: {e}")
-            state["error_message"] = f"Email generation error: {e}"
-            state["generated_emails"] = []
         
         return state
     
@@ -293,8 +199,6 @@ class AISecurityPaperWorkflow:
     
     def _generate_connection_request(self, author_name: str, paper_title: str) -> str:
         """Generate connection request message under 300 characters with complete paper title"""
-        import requests
-        from bs4 import BeautifulSoup
         
         # Extract first name only
         first_name = author_name.split()[0] if author_name else "there"
@@ -355,10 +259,6 @@ class AISecurityPaperWorkflow:
     def _generate_follow_up_message(self, author_name: str, paper_title: str, 
                                   paper_url: str, author_info: Dict[str, Any]) -> str:
         """Generate follow-up message under 8000 characters"""
-        
-        # Extract company info
-        company = author_info.get('company', 'your company')
-        title = author_info.get('title', 'Professional')
         
         # Extract first name only
         first_name = author_name.split()[0] if author_name else "there"
@@ -491,7 +391,7 @@ Serge"""
         
         state["current_step"] = "completed"
         
-        # Generate prospects directly from analyzed papers
+        # Generate prospects from analyzed papers (without LinkedIn messages - handled in main.py)
         papers_analyzed = state.get("papers_analyzed", [])
         prospects = []
         
@@ -515,7 +415,7 @@ Serge"""
                 print(f"     Source: {paper_metadata.get('display_url', '')}")
                 print()
         
-        state["generated_emails"] = prospects  # Keep the same key for compatibility
+        state["prospects"] = prospects
         
         # Add summary statistics
         papers_found = len(state.get("papers_found", []))
@@ -531,16 +431,6 @@ Serge"""
         """)
         
         return state
-    
-    def _calculate_max_relevance_score(self, paper_analysis: Dict[str, Any]) -> int:
-        """Calculate maximum relevance score across all themes"""
-        scores = []
-        for theme in ['external_partners_trust', 'ai_data_integrity', 'efficient_ai_use']:
-            theme_data = paper_analysis.get(theme, {})
-            if isinstance(theme_data, dict):
-                scores.append(theme_data.get('relevance_score', 0))
-        
-        return max(scores) if scores else 0
     
     def _fetch_article_content(self, paper_url: str) -> str:
         """Fetch the actual article content from the URL"""
@@ -594,7 +484,7 @@ Serge"""
                 "papers_found": [],
                 "papers_analyzed": [],
                 "altastata_analysis": {},
-                "generated_emails": [],
+                "prospects": [],
                 "current_step": "starting",
                 "error_message": ""
             }
@@ -640,7 +530,6 @@ Serge"""
         # Skip search step since we already have papers
         state = self._analyze_altastata_node(initial_state)
         state = self._analyze_papers_node(state)
-        state = self._generate_emails_node(state)
         state = self._finalize_results_node(state)
         
         return state
