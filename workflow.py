@@ -376,6 +376,11 @@ Serge"""
                 paper_url, paper_title, paper_snippet
             )
             
+            # Clean title again considering author's company (remove redundant company names)
+            if author_info:
+                cleaned_title = self.search_agent._clean_title_with_author_context(paper_title, author_info)
+                paper_metadata['title'] = cleaned_title
+            
             # Update paper metadata with author info
             paper_metadata['author_info'] = author_info
             

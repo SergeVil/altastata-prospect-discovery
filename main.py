@@ -183,7 +183,7 @@ def generate_prospects_files(results: dict, good_filename: str, other_filename: 
             author_name = author_info.get('name', 'No individual author found')
             compatibility_analysis = paper.get('compatibility_analysis', '')
             
-            f.write(f"### **📄 Paper {i}: {paper_title[:60]}...**\n")
+            f.write(f"### **📄 Paper {i}: {paper_title}**\n")
             f.write(f"- **Paper Title:** {paper_title}\n")
             f.write(f"- **Paper URL:** {paper_url}\n")
             f.write(f"- **Source:** {paper_source}\n")
@@ -405,7 +405,7 @@ def print_summary(results: dict):
         print(f"   Title: {author_info.get('title', 'Professional')}")
         print(f"   Company: {author_info.get('company', 'Not specified')}")
         print(f"   LinkedIn: {author_info.get('linkedin_profile', 'Not found')}")
-        print(f"   Paper: {prospect.get('paper_title', '')[:60]}...")
+        print(f"   Paper: {prospect.get('paper_title', '')}")
         print(f"   Source: {prospect.get('paper_source', '')}")
         
         # Show LinkedIn messages if available

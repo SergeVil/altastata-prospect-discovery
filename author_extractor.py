@@ -426,6 +426,33 @@ class AuthorExtractor:
         except Exception as e:
             logger.debug("Error getting page content: %s", e)
             return ""
+    
+    def extract_full_title_from_page(self, url: str) -> str:
+        """Extract the full title from the actual webpage HTML"""
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = requests.get(url, headers=headers, timeout=10)
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Try to get the title from the <title> tag
+            title_tag = soup.find('title')
+            if title_tag and title_tag.text.strip():
+                full_title = title_tag.text.strip()
+                
+                # Clean the title using the same logic as search agent
+                from agents.search_agent import SearchAgent
+                search_agent = SearchAgent()
+                cleaned_title = search_agent._clean_paper_title(full_title)
+                
+                return cleaned_title
+            
+            return ""
+            
+        except Exception as e:
+            logger.debug(f"Error extracting full title from {url}: {e}")
+            return ""
 
 
     def _extract_with_ai(self, url: str, title: str, content: str) -> Dict[str, str]:
