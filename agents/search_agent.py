@@ -193,17 +193,6 @@ class SearchAgent:
         """Search specifically for LinkedIn profiles - no modification to query"""
         return self.search_papers(query, num_results=config.MAX_SEARCH_RESULTS)
     
-    def extract_company_domains(self, papers: List[Dict[str, Any]]) -> List[str]:
-        """Extract unique company domains from paper sources"""
-        domains = set()
-        for paper in papers:
-            display_url = paper.get('display_url', '')
-            if display_url and '.' in display_url:
-                # Extract domain, filtering out academic domains
-                domain = display_url.lower()
-                if not any(academic in domain for academic in ['.edu', 'arxiv', 'researchgate', 'scholar.google']):
-                    domains.add(domain)
-        return list(domains)
     
     def rank_papers_by_business_relevance(self, papers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Rank papers by business relevance using LLM"""

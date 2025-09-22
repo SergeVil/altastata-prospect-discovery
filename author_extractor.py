@@ -680,32 +680,6 @@ class AuthorExtractor:
             logger.debug("Error getting page content: %s", e)
             return ""
     
-    def extract_full_title_from_page(self, url: str) -> str:
-        """Extract the full title from the actual webpage HTML"""
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-            response = requests.get(url, headers=headers, timeout=10)
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Try to get the title from the <title> tag
-            title_tag = soup.find('title')
-            if title_tag and title_tag.text.strip():
-                full_title = title_tag.text.strip()
-                
-                # Clean the title using the same logic as search agent
-                from agents.search_agent import SearchAgent
-                search_agent = SearchAgent()
-                cleaned_title = search_agent._clean_paper_title(full_title)
-                
-                return cleaned_title
-            
-            return ""
-            
-        except Exception as e:
-            logger.debug(f"Error extracting full title from {url}: {e}")
-            return ""
 
 
     def _extract_with_ai(self, url: str, title: str, content: str) -> Dict[str, str]:
@@ -856,43 +830,6 @@ class AuthorExtractor:
         
         return author_info
 
-    def analyze_altastata_compatibility(self, paper_title: str, paper_content: str) -> str:
-        """Use AI to analyze how the paper relates to AltaStata's solutions"""
-        try:
-            prompt = f"""
-            Analyze how this article relates to AltaStata's solutions and create a compatibility analysis.
-
-            AltaStata Company Profile:
-            - Company: AltaStata
-            - Tagline: "Data Security for AI"
-            - Mission: To empower innovators on their AI journey through cutting-edge, patented technology
-            - Core Solutions:
-              * End-to-end encryption for AI data
-              * Zero-Trust Data Security model
-              * Data integrity verification
-              * Fortified Data Lake concept
-              * Clean room collaboration for partners
-              * AI supply chain security
-              * Data poisoning prevention
-              * Enterprise AI security solutions
-
-            Article Title: {paper_title}
-            Article Content: {paper_content[:2000]}...
-
-            Analyze the compatibility and create a concise analysis that includes:
-            1. Key pain points mentioned that AltaStata could solve
-            2. How AltaStata's encryption and data security solutions would help
-            3. Target audience alignment
-
-            Return a brief analysis with 2-3 bullet points using simple dashes (-), focusing on the most relevant connections. Do not use asterisks (*) or bold formatting (**).
-            """
-            
-            response = self.llm.invoke(prompt)
-            return response.content.strip()
-            
-        except Exception as e:
-            logger.debug("AI compatibility analysis failed: %s", e)
-            return "- General AI Security: Paper discusses AI security topics that could benefit from AltaStata's encryption and data integrity solutions"
 
     def _is_individual_author(self, name: str) -> bool:
         """Use AI to check if a name is an individual person rather than an organization"""
