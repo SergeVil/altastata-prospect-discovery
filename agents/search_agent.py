@@ -183,9 +183,9 @@ class SearchAgent:
     
     def search_general_security_papers(self, theme: str) -> List[Dict[str, Any]]:
         """Search for business papers on AI security themes - MUST contain encryption"""
-        # Search ONLY for pages that contain "encryption" - more restrictive
+        # Use simple query with encryption and AI as required keywords
         # This ensures we get encryption-focused content relevant to AltaStata
-        query = f"encryption \"{theme}\" AI"
+        query = f"encryption AI \"{theme}\""
         
         return self.search_papers(query, num_results=config.MAX_SEARCH_RESULTS)
     
