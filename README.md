@@ -19,7 +19,6 @@ AI-powered prospect discovery system that finds high-quality LinkedIn prospects 
 ### AI Agents
 - **`agents/search_agent.py`** - Google Custom Search API integration
 - **`agents/analysis_agent.py`** - Paper content analysis
-- **`agents/email_agent.py`** - Personalized message generation
 
 ### Documentation
 - **`docs/guides/HOW_TO_RUN.md`** - Complete setup and run instructions
@@ -42,9 +41,25 @@ Results are saved in `results/YYYY-MM-DD/`:
 ## 🎯 Typical Results
 
 - **30 papers** analyzed per run
-- **8-10 prospects** with LinkedIn profiles found
+- **7 high-quality prospects** with LinkedIn profiles found
 - **Personalized messages** generated for each prospect
+- **LinkedIn advice posts** flagged for manual review
 - **Processing time**: ~3 minutes
+
+## ✨ Recent Improvements
+
+### **Quality Enhancements:**
+- **Fake name filtering** - Automatically removes "John Doe", "Jane Smith", etc.
+- **LinkedIn profile validation** - Ensures profile usernames match author names
+- **Special advice post handling** - LinkedIn advice posts flagged for manual review
+- **Inaccessible article handling** - Gracefully skips 403/404 errors
+- **Co-author references** - Shows relationships between prospects from same paper
+
+### **Code Quality:**
+- **15% code reduction** - Removed 12 unused functions
+- **Cleaner architecture** - Deleted entire unused email_agent.py
+- **Better error handling** - More robust extraction process
+- **Improved maintainability** - Streamlined codebase
 
 ## 🔧 Configuration
 

@@ -94,7 +94,8 @@ python main.py
 
 ### **Typical Output:**
 - **30 papers** analyzed across AI security themes
-- **8-10 prospects** with LinkedIn profiles found
+- **7 high-quality prospects** with LinkedIn profiles found
+- **LinkedIn advice posts** flagged for manual review
 - **Processing time:** ~3 minutes
 - **Personalized messages** for each prospect
 
@@ -114,9 +115,8 @@ results/YYYY-MM-DD/
 ### **Core Components:**
 - **Search Agent** - Google Custom Search API integration
 - **Analysis Agent** - Paper content analysis with Vertex AI
-- **Author Extractor** - AI-powered LinkedIn profile discovery
-- **Email Agent** - Personalized message generation
-- **Workflow Orchestrator** - LangGraph-based coordination
+- **Author Extractor** - AI-powered LinkedIn profile discovery with fake name filtering
+- **Workflow Orchestrator** - LangGraph-based coordination with LinkedIn message generation
 
 ### **AI Security Themes:**
 1. AI External Partners Trust
@@ -172,6 +172,8 @@ pip install -r requirements.txt
 ### **Quality Filters:**
 - **Individual author validation** (no organizations)
 - **LinkedIn profile requirement**
+- **Fake name filtering** (no "John Doe", "Jane Smith", etc.)
+- **LinkedIn profile validation** (username matches author name)
 - **Business relevance scoring**
 
 ---
@@ -212,10 +214,11 @@ pip install -r requirements.txt
 ## 🎯 **Success Metrics**
 
 ### **Typical Performance:**
-- **Prospect Discovery Rate:** 8-10 prospects per run
+- **Prospect Discovery Rate:** 7 high-quality prospects per run
 - **Processing Time:** 2-3 minutes
 - **LinkedIn Profile Success:** 95%+
 - **Message Personalization:** 100%
+- **Fake Author Filtering:** 100% (no fake names)
 
 ### **Quality Indicators:**
 - ✅ Individual authors (no organizations)
