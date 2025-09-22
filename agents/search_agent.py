@@ -82,6 +82,41 @@ class SearchAgent:
         
         return cleaned_title
     
+    def _extract_useful_metadata(self, pagemap: dict) -> dict:
+        """Extract only useful metadata fields, ignoring bloat"""
+        useful_metadata = {}
+        
+        # Get metatags if they exist
+        metatags = pagemap.get('metatags', [])
+        if metatags and isinstance(metatags, list) and len(metatags) > 0:
+            meta = metatags[0]  # Usually first element contains the main metadata
+            
+            # Extract useful fields only
+            if 'author' in meta:
+                useful_metadata['author'] = meta['author']
+            
+            if 'article:author' in meta:
+                useful_metadata['author_url'] = meta['article:author']
+                
+            if 'article:published_time' in meta:
+                useful_metadata['published_date'] = meta['article:published_time']
+            elif 'dcterms.date' in meta:
+                useful_metadata['published_date'] = meta['dcterms.date']
+                
+            if 'og:description' in meta:
+                useful_metadata['description'] = meta['og:description']
+            elif 'twitter:description' in meta:
+                useful_metadata['description'] = meta['twitter:description']
+                
+            if 'twitter:data1' in meta and 'read' in meta['twitter:data1'].lower():
+                useful_metadata['reading_time'] = meta['twitter:data1']
+                
+            # Extract organization/site name for context
+            if 'og:site_name' in meta:
+                useful_metadata['site_name'] = meta['og:site_name']
+        
+        return useful_metadata
+    
     def _clean_title_with_author_context(self, title: str, author_info: dict) -> str:
         """Clean title considering author's company - remove company name if it matches publication"""
         if not title or not author_info:
@@ -123,12 +158,15 @@ class SearchAgent:
                 for item in result['items']:
                     raw_title = item.get('title', '')
                     cleaned_title = self._clean_paper_title(raw_title)
+                    # Extract only useful metadata
+                    useful_metadata = self._extract_useful_metadata(item.get('pagemap', {}))
+                    
                     paper = {
                         'title': cleaned_title,
                         'url': item.get('link', ''),
                         'snippet': item.get('snippet', ''),
                         'display_url': item.get('displayLink', ''),
-                        'meta_info': item.get('pagemap', {}),
+                        'metadata': useful_metadata,
                         'author_info': {}  # Will be populated later during analysis
                     }
                     papers.append(paper)
@@ -144,10 +182,10 @@ class SearchAgent:
         return self.search_papers(query, num_results=5)
     
     def search_general_security_papers(self, theme: str) -> List[Dict[str, Any]]:
-        """Search for business papers on AI security themes - let CSE find best sources"""
-        # Simple query that focuses on the theme and encryption
-        # Let the Custom Search Engine find the best sources naturally
-        query = f"\"{theme}\" encryption"
+        """Search for business papers on AI security themes - MUST contain encryption"""
+        # Search ONLY for pages that contain "encryption" - more restrictive
+        # This ensures we get encryption-focused content relevant to AltaStata
+        query = f"encryption \"{theme}\" AI"
         
         return self.search_papers(query, num_results=config.MAX_SEARCH_RESULTS)
     

@@ -200,8 +200,8 @@ class AISecurityPaperWorkflow:
     def _generate_connection_request(self, author_name: str, paper_title: str) -> str:
         """Generate connection request message under 300 characters with complete paper title"""
         
-        # Extract first name only
-        first_name = author_name.split()[0] if author_name else "there"
+        # Extract first name only, handling titles like Dr., Prof., etc.
+        first_name = self._extract_first_name(author_name) if author_name else "there"
         
         # Clean the title - remove "..." if it exists and fix incomplete phrases
         clean_title = paper_title.replace('...', '').strip()
@@ -256,12 +256,31 @@ class AISecurityPaperWorkflow:
         
         return message
     
+    def _extract_first_name(self, author_name: str) -> str:
+        """Extract first name from full name, handling titles like Dr., Prof., etc."""
+        if not author_name:
+            return "there"
+        
+        # Common titles to skip
+        titles = ['dr', 'prof', 'professor', 'mr', 'mrs', 'ms', 'miss']
+        
+        name_parts = author_name.split()
+        
+        # Find the first non-title word
+        for part in name_parts:
+            clean_part = part.lower().rstrip('.')
+            if clean_part not in titles:
+                return part
+        
+        # Fallback to first word if no non-title found
+        return name_parts[0] if name_parts else "there"
+    
     def _generate_follow_up_message(self, author_name: str, paper_title: str, 
                                   paper_url: str, author_info: Dict[str, Any]) -> str:
         """Generate follow-up message under 8000 characters"""
         
-        # Extract first name only
-        first_name = author_name.split()[0] if author_name else "there"
+        # Extract first name only, handling titles like Dr., Prof., etc.
+        first_name = self._extract_first_name(author_name) if author_name else "there"
         
         # Extract author's specific insights from their paper using AI
         author_insights = self._extract_author_insights_from_paper(paper_title, paper_url)
@@ -371,9 +390,10 @@ Serge"""
             paper_url = paper_metadata.get('url', '')
             paper_snippet = paper_metadata.get('snippet', '')
             
-            # Extract author information
+            # Extract author information with metadata
+            metadata = paper_metadata.get('metadata', {})
             author_info = self.search_agent.author_extractor.extract_author_info(
-                paper_url, paper_title, paper_snippet
+                paper_url, paper_title, paper_snippet, metadata
             )
             
             # Clean title again considering author's company (remove redundant company names)
@@ -399,28 +419,66 @@ Serge"""
         # Generate prospects from analyzed papers (without LinkedIn messages - handled in main.py)
         papers_analyzed = state.get("papers_analyzed", [])
         prospects = []
+        advice_posts = []  # Special collection for LinkedIn advice posts
         
         for paper_analysis in papers_analyzed:
             paper_metadata = paper_analysis.get('paper_metadata', {})
             author_info = paper_metadata.get('author_info', {})
-            author_name = author_info.get('name', '').strip()
+            all_authors = author_info.get('all_authors', [])
             
-            # Only include papers with individual person names
-            if author_name and author_info.get('is_individual', False):
-                prospect = {
-                    'paper_title': paper_metadata.get('title', ''),
-                    'paper_url': paper_metadata.get('url', ''),
-                    'paper_source': paper_metadata.get('display_url', ''),
-                    'author_info': author_info
+            # Special handling for LinkedIn advice posts
+            if author_info.get('is_advice_post', False):
+                advice_post = {
+                    'title': author_info.get('advice_post_title', ''),
+                    'url': author_info.get('advice_post_url', ''),
+                    'source': paper_metadata.get('display_url', ''),
+                    'snippet': paper_metadata.get('snippet', '')
                 }
-                prospects.append(prospect)
-                print(f"  ✅ Found prospect: {author_name} ({author_info.get('title', 'Professional')})")
-                print(f"     Company: {author_info.get('company', 'Not specified')}")
-                print(f"     LinkedIn: {author_info.get('linkedin_profile', 'Not found - needs manual search')}")
-                print(f"     Source: {paper_metadata.get('display_url', '')}")
+                advice_posts.append(advice_post)
+                print(f"  📋 TODO: LinkedIn advice post - {advice_post['title']}")
+                print(f"     URL: {advice_post['url']}")
+                print(f"     Source: {advice_post['source']}")
+                print(f"     Note: Manual review needed - many expert contributors")
                 print()
+                continue
+            
+            # Create prospects for ALL individual authors
+            if all_authors:
+                for author in all_authors:
+                    author_name = author.get('name', '').strip()
+                    # Only include individual person names
+                    if author_name and author.get('is_individual', False):
+                        prospect = {
+                            'paper_title': paper_metadata.get('title', ''),
+                            'paper_url': paper_metadata.get('url', ''),
+                            'paper_source': paper_metadata.get('display_url', ''),
+                            'author_info': author  # Use individual author info, not the primary author_info
+                        }
+                        prospects.append(prospect)
+                        print(f"  ✅ Found prospect: {author_name} ({author.get('title', 'Professional')})")
+                        print(f"     Company: {author.get('company', 'Not specified')}")
+                        print(f"     LinkedIn: {author.get('linkedin_profile', 'Not found - needs manual search')}")
+                        print(f"     Source: {paper_metadata.get('display_url', '')}")
+                        print()
+            else:
+                # Fallback to primary author if no all_authors array
+                author_name = author_info.get('name', '').strip()
+                if author_name and author_info.get('is_individual', False):
+                    prospect = {
+                        'paper_title': paper_metadata.get('title', ''),
+                        'paper_url': paper_metadata.get('url', ''),
+                        'paper_source': paper_metadata.get('display_url', ''),
+                        'author_info': author_info
+                    }
+                    prospects.append(prospect)
+                    print(f"  ✅ Found prospect: {author_name} ({author_info.get('title', 'Professional')})")
+                    print(f"     Company: {author_info.get('company', 'Not specified')}")
+                    print(f"     LinkedIn: {author_info.get('linkedin_profile', 'Not found - needs manual search')}")
+                    print(f"     Source: {paper_metadata.get('display_url', '')}")
+                    print()
         
         state["prospects"] = prospects
+        state["advice_posts"] = advice_posts  # Add advice posts to state
         
         # Add summary statistics
         papers_found = len(state.get("papers_found", []))
@@ -485,7 +543,7 @@ Serge"""
         """Run the complete workflow"""
         if initial_state is None:
             initial_state = {
-                "search_queries": [f"{theme} AI security business" for theme in config.SECURITY_THEMES],
+                "search_queries": [f'"{theme}" encryption' for theme in config.SECURITY_THEMES],
                 "papers_found": [],
                 "papers_analyzed": [],
                 "altastata_analysis": {},

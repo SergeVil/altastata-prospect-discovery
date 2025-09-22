@@ -68,6 +68,21 @@ def write_prospect_info(f, prospect_num: int, author_info: dict, paper_title: st
     f.write(f"- **Paper URL:** {paper_url}\n")
     f.write(f"- **Source:** {paper_source}\n\n")
 
+def write_prospect_info_with_reference(f, prospect_num: int, author_info: dict, paper_title: str, paper_url: str, paper_source: str, same_article_prospect: int = None):
+    """Write standardized prospect information with co-author reference"""
+    author_name = author_info.get('name', 'Unknown')
+    f.write(f"### **✅ Prospect {prospect_num}: {author_name}**\n")
+    if same_article_prospect:
+        f.write(f"*(Co-author with Prospect {same_article_prospect})*\n")
+    f.write(f"- **Name:** {author_name}\n")
+    f.write(f"- **Title:** {author_info.get('title', '')}\n")
+    f.write(f"- **Company:** {author_info.get('company', '')}\n")
+    f.write(f"- **LinkedIn Profile:** {author_info.get('linkedin_profile', 'Not found')}\n")
+    f.write(f"- **Email:** {author_info.get('email', '')}\n")
+    f.write(f"- **Paper:** \"{paper_title}\"\n")
+    f.write(f"- **Paper URL:** {paper_url}\n")
+    f.write(f"- **Source:** {paper_source}\n\n")
+
 def write_linkedin_messages(f, linkedin_messages: dict):
     """Write LinkedIn messages to file"""
     f.write("**🔗 LinkedIn Connection Request:**\n")
@@ -112,8 +127,7 @@ def generate_prospects_files(results: dict, good_filename: str, other_filename: 
                 'paper_title': paper_metadata.get('title', ''),
                 'paper_url': paper_metadata.get('url', ''),
                 'paper_source': paper_metadata.get('display_url', ''),
-                'author_info': author_info,
-                'compatibility_analysis': author_info.get('compatibility_analysis', '')
+                'author_info': author_info
             }
             other_prospects.append(other_prospect)
     
@@ -181,7 +195,6 @@ def generate_prospects_files(results: dict, good_filename: str, other_filename: 
             paper_source = paper.get('paper_source', '')
             author_info = paper.get('author_info', {})
             author_name = author_info.get('name', 'No individual author found')
-            compatibility_analysis = paper.get('compatibility_analysis', '')
             
             f.write(f"### **📄 Paper {i}: {paper_title}**\n")
             f.write(f"- **Paper Title:** {paper_title}\n")
@@ -233,7 +246,6 @@ def save_results_to_files(results: dict, timestamp: str):
                                 'linkedin_profile': author.get('linkedin_profile', ''),
                                 'email': author.get('email', ''),
                                 'profile_summary': author.get('profile_summary', ''),
-                                'compatibility_analysis': author.get('compatibility_analysis', ''),
                                 'is_individual': author.get('is_individual', False)
                             }
                             for author in value if isinstance(author, dict)
@@ -277,7 +289,6 @@ def save_results_to_files(results: dict, timestamp: str):
                 'paper_title': prospect.get('paper_title', ''),
                 'paper_source': prospect.get('paper_source', ''),
                 'paper_url': prospect.get('paper_url', ''),
-                'compatibility_analysis': prospect.get('compatibility_analysis', ''),
                 'linkedin_connection_request': linkedin_messages.get('connection_request', ''),
                 'linkedin_follow_up_message': linkedin_messages.get('follow_up_message', '')
             })
@@ -302,14 +313,19 @@ def save_results_to_files(results: dict, timestamp: str):
 def generate_enhanced_prospects_file(results: dict, filename: str):
     """Generate enhanced markdown file with guaranteed LinkedIn messages - REFACTORED"""
     prospects = results.get('prospects', [])
+    advice_posts = results.get('advice_posts', [])
     
-    if not prospects:
-        print("No prospects found for enhanced file!")
+    if not prospects and not advice_posts:
+        print("No prospects or advice posts found for enhanced file!")
         return
+    
+    # Track papers to detect multiple authors from same article
+    paper_to_prospect = {}  # paper_url -> first_prospect_number
     
     with open(filename, 'w', encoding='utf-8') as f:
         write_prospect_file_header(f, "Good Prospects - With LinkedIn Messages", len(prospects))
         
+        # Write regular prospects
         for i, prospect in enumerate(prospects, 1):
             author_info = prospect.get('author_info', {})
             author_name = author_info.get('name', 'Unknown')
@@ -317,16 +333,36 @@ def generate_enhanced_prospects_file(results: dict, filename: str):
             paper_url = prospect.get('paper_url', '')
             paper_source = prospect.get('paper_source', '')
             
+            # Check if this is a co-author from same article
+            same_article_prospect = None
+            if paper_url in paper_to_prospect:
+                same_article_prospect = paper_to_prospect[paper_url]
+            else:
+                paper_to_prospect[paper_url] = i
+            
             # Use centralized LinkedIn message generation
             linkedin_messages = generate_linkedin_messages(author_name, paper_title, paper_url, author_info)
             
-            # Use centralized prospect info writing
-            write_prospect_info(f, i, author_info, paper_title, paper_url, paper_source)
+            # Use centralized prospect info writing with co-author reference
+            write_prospect_info_with_reference(f, i, author_info, paper_title, paper_url, paper_source, same_article_prospect)
             
             # Use centralized LinkedIn messages writing
             write_linkedin_messages(f, linkedin_messages)
             
             f.write("---\n\n")
+        
+        # Write TODO section for LinkedIn advice posts
+        if advice_posts:
+            f.write("\n# 📋 TODO: LinkedIn Advice Posts for Manual Review\n\n")
+            f.write("These LinkedIn advice posts have many expert contributors discussing AI security topics relevant to AltaStata. Manual review needed to extract real prospects.\n\n")
+            
+            for i, advice_post in enumerate(advice_posts, 1):
+                f.write(f"## 📋 TODO {i}: {advice_post['title']}\n")
+                f.write(f"- **URL:** {advice_post['url']}\n")
+                f.write(f"- **Source:** {advice_post['source']}\n")
+                f.write(f"- **Snippet:** {advice_post['snippet'][:200]}...\n")
+                f.write(f"- **Action:** Manual review - extract expert contributors\n")
+                f.write(f"- **Potential:** High - many engaged AI security experts\n\n")
 
 def generate_other_prospects_file(results: dict, filename: str, timestamp: str):
     """Generate markdown file for papers without individual authors"""
@@ -354,8 +390,7 @@ def generate_other_prospects_file(results: dict, filename: str, timestamp: str):
                 'paper_title': paper_metadata.get('title', ''),
                 'paper_url': paper_metadata.get('url', ''),
                 'paper_source': paper_metadata.get('display_url', ''),
-                'author_info': author_info,
-                'compatibility_analysis': author_info.get('compatibility_analysis', '')
+                'author_info': author_info
             })
     
     if other_prospects:
