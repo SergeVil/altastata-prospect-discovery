@@ -132,6 +132,13 @@ Currently, the script has these hardcoded elements:
 3. **Contributor Count**: 229 total contributors
 4. **Base Contributors**: 5 real contributors from web search results
 
+### Important Note on LinkedIn Profiles
+
+- **Real Profiles**: The first 5 contributors have real LinkedIn URLs from the web search results
+- **Simulated Profiles**: Additional contributors (6-229) have simulated URLs ending with `-simulated`
+- **Profile Availability**: Only the first 5 profiles are guaranteed to be real and accessible
+- **Manual Verification**: For additional contributors, you'll need to manually find their real LinkedIn profiles
+
 ### Customization Options
 
 To make the script more flexible, you can modify:
