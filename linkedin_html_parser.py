@@ -35,9 +35,10 @@ class LinkedInHTMLParser:
         for i, section in enumerate(contributor_sections[1:], 1):  # Skip first empty section
             if i <= 3:  # Debug first 3 sections
                 print(f"🔍 Processing section {i}, length: {len(section)}")
-                print(f"📄 First 500 chars: {section[:500]}")
+                print(f"📄 First 1000 chars: {section[:1000]}")
                 print("---")
             
+                
             if len(section) > 50:  # Only process substantial sections
                 contributor = self._extract_contributor_from_section(section, i)
                 if contributor:
@@ -72,12 +73,33 @@ class LinkedInHTMLParser:
             
             linkedin_url = linkedin_url_match.group(0) if linkedin_url_match else ""
             
-            # Extract name from the section
-            name_match = re.search(r'>([^<]+)</a>', section)
-            if not name_match:
+            # Extract name from the section - handle different HTML structures
+            name = ""
+            
+            # Try to find name in LinkedIn profile link first - look for the pattern we see in the HTML
+            name_match = re.search(r'<a[^>]*href="[^"]*linkedin\.com/in/[^"]*"[^>]*>([^<]+)</a>', section)
+            if name_match:
+                name = name_match.group(1).strip()
+            else:
+                # Look for plain text names after "Contributor profile photo"
+                name_match = re.search(r'Contributor profile photo\s*\n([A-Za-z][A-Za-z\s\.\-,&🌟⭐💼🔒🔐📊🚀🛠️📜🔄]+[A-Za-z])', section)
+                if name_match:
+                    name = name_match.group(1).strip()
+                else:
+                    # Fallback: look for any text that looks like a name (starts with capital letter)
+                    name_match = re.search(r'\n([A-Z][A-Za-z\s\.\-,&🌟⭐💼🔒🔐📊🚀🛠️📜🔄]+[A-Za-z])\n', section)
+                    if name_match:
+                        name = name_match.group(1).strip()
+                    else:
+                        return None
+            
+            if not name or len(name) < 2:
                 return None
             
-            name = name_match.group(1).strip()
+            # Additional cleanup - remove any remaining HTML artifacts
+            name = re.sub(r'&[^;]+;', '', name)  # Remove HTML entities
+            name = re.sub(r'<[^>]+>', '', name)  # Remove any remaining HTML tags
+            name = re.sub(r'\s+', ' ', name).strip()  # Clean up whitespace
             
             # Clean up name (remove emojis and extra characters)
             name = re.sub(r'[🌟⭐💼🔒🔐📊🚀🛠️📜🔄]', '', name).strip()
@@ -552,11 +574,13 @@ Serge"""
         return follow_up
     
     def _extract_specific_insights(self, answer: str) -> str:
-        """Extract specific insights from the contributor's actual comments"""
+        """Extract specific insights from the contributor's actual comments using AI analysis"""
+        from langchain_google_vertexai import ChatVertexAI
+        
         # Split by comment separators to get individual comments
         comments = [c.strip() for c in answer.split('---') if c.strip()]
         
-        # Combine all comments into one text
+        # Combine all comments into one text for AI analysis
         combined_text = ' '.join(comments)
         
         # Clean the text
@@ -566,57 +590,45 @@ Serge"""
         if len(clean_text) < 20:
             return "• AI data security insights"
         
-        # Extract meaningful insights using simple pattern matching
-        insights = []
-        text_lower = clean_text.lower()
-        
-        # Look for specific technical approaches mentioned
-        if 'vendor audit' in text_lower or 'comprehensive audit' in text_lower:
-            insights.append("• comprehensive vendor audits")
-        if 'comprehensive security protocol' in text_lower:
-            insights.append("• comprehensive security protocols")
-        if 'vendor agreement' in text_lower:
-            insights.append("• vendor agreements")
-        if 'data access control' in text_lower or 'access control' in text_lower:
-            insights.append("• data access controls")
-        if 'authentication' in text_lower:
-            insights.append("• authentication protocols")
-        if 'encryption' in text_lower:
-            insights.append("• data encryption standards")
-        if 'contract' in text_lower and 'security' in text_lower:
-            insights.append("• contract security clauses")
-        if 'zero-trust' in text_lower or 'zero trust' in text_lower:
-            insights.append("• zero-trust principles")
-        if 'key management' in text_lower:
-            insights.append("• secure key management")
-        if 'vulnerability assessment' in text_lower:
-            insights.append("• vulnerability assessments")
-        if 'incident response' in text_lower:
-            insights.append("• incident response drills")
-        if 'monitoring' in text_lower:
-            insights.append("• continuous monitoring")
-        if 'compliance' in text_lower:
-            insights.append("• compliance standards")
-        if 'data protection' in text_lower:
-            insights.append("• data protection protocols")
-        
-        # Remove duplicates while preserving order
-        seen = set()
-        unique_insights = []
-        for insight in insights:
-            if insight not in seen:
-                seen.add(insight)
-                unique_insights.append(insight)
-        
-        # Return up to 3 insights, or fallback
-        if unique_insights:
-            return '\n'.join(unique_insights[:3])
-        else:
+        try:
+            # Initialize AI model for intelligent analysis
+            llm = ChatVertexAI(
+                model_name="gemini-2.5-flash",
+                temperature=0.1,
+                max_output_tokens=1000
+            )
+            
+            # Use AI to understand and extract technical approaches
+            prompt = f"""Extract 3 technical approaches from this text:
+
+{clean_text[:1000]}
+
+Return 3 bullet points:
+• approach 1
+• approach 2  
+• approach 3"""
+
+            response = llm.invoke(prompt)
+            ai_insights = response.content.strip()
+            
+            # Return the AI response directly
+            if ai_insights and len(ai_insights) > 10:
+                return ai_insights
+            else:
+                return "• AI data security insights"
+                
+        except Exception as e:
+            print(f"❌ AI insight extraction failed for text: {clean_text[:50]}... Error: {e}")
             return "• AI data security insights"
     
     def create_sorted_markdown(self, contributors: List[Dict[str, Any]], timestamp: str) -> str:
         """Create sorted markdown file with all contributors"""
-        filename = f"results/2025-09-21/linkedin_real_contributors_sorted_{timestamp}.md"
+        from datetime import datetime
+        import os
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        results_dir = f"results/{date_str}"
+        os.makedirs(results_dir, exist_ok=True)
+        filename = f"{results_dir}/linkedin_real_contributors_sorted_{timestamp}.md"
         
         with open(filename, 'w', encoding='utf-8') as f:
             f.write("# LinkedIn Advice Post Contributors - Real Data (Sorted by Relevance)\n\n")
@@ -668,7 +680,12 @@ Serge"""
     
     def create_csv_tracking_file(self, contributors: List[Dict[str, Any]], timestamp: str) -> str:
         """Create CSV tracking file for communication status"""
-        filename = f"results/2025-09-21/linkedin_real_contributors_tracking_{timestamp}.csv"
+        from datetime import datetime
+        import os
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        results_dir = f"results/{date_str}"
+        os.makedirs(results_dir, exist_ok=True)
+        filename = f"{results_dir}/linkedin_real_contributors_tracking_{timestamp}.csv"
         
         with open(filename, 'w', encoding='utf-8') as f:
             f.write("Name,Title,LinkedIn Profile,Priority,Encryption Focus,Engagement,Activity Level,Comment Count,Connection Status,Follow-up Status,Notes\n")
