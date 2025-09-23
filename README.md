@@ -19,7 +19,6 @@ AI-powered prospect discovery system that finds high-quality LinkedIn prospects 
 ### AI Agents
 - **`agents/search_agent.py`** - Google Custom Search API integration
 - **`agents/analysis_agent.py`** - Paper content analysis
-- **`agents/email_agent.py`** - Personalized message generation
 
 ### Documentation
 - **`docs/guides/HOW_TO_RUN.md`** - Complete setup and run instructions
@@ -29,6 +28,7 @@ AI-powered prospect discovery system that finds high-quality LinkedIn prospects 
 
 ### Utilities
 - **`scripts/manage_results.py`** - Clean up old result files
+- **`linkedin_html_parser.py`** - Extract contributors from LinkedIn advice post HTML
 - **`requirements.txt`** - Python dependencies
 
 ## 📊 Output Files
@@ -38,13 +38,39 @@ Results are saved in `results/YYYY-MM-DD/`:
 - **`prospects_*.csv`** - Same data in spreadsheet format
 - **`ai_security_analysis_*.json`** - Complete system analysis
 - **`other_prospects_ready_*.md`** - Additional prospects for manual research
+- **`linkedin_real_contributors_sorted_*.md`** - LinkedIn advice post contributors (AI-analyzed)
+- **`linkedin_real_contributors_tracking_*.csv`** - CSV tracking file for LinkedIn outreach
 
 ## 🎯 Typical Results
 
+### Main Prospect Discovery
 - **30 papers** analyzed per run
-- **8-10 prospects** with LinkedIn profiles found
+- **7 high-quality prospects** with LinkedIn profiles found
 - **Personalized messages** generated for each prospect
+- **LinkedIn advice posts** flagged for manual review
 - **Processing time**: ~3 minutes
+
+### LinkedIn Advice Post Extraction
+- **137 contributors** extracted from saved HTML
+- **42 high-priority** contributors (C-level, VPs, Directors, Founders)
+- **74 contributors** mentioning encryption specifically
+- **AI-generated insights** from each contributor's comments
+- **Processing time**: ~5 minutes
+
+## ✨ Recent Improvements
+
+### **Quality Enhancements:**
+- **Fake name filtering** - Automatically removes "John Doe", "Jane Smith", etc.
+- **LinkedIn profile validation** - Ensures profile usernames match author names
+- **Special advice post handling** - LinkedIn advice posts flagged for manual review
+- **Inaccessible article handling** - Gracefully skips 403/404 errors
+- **Co-author references** - Shows relationships between prospects from same paper
+
+### **Code Quality:**
+- **15% code reduction** - Removed 12 unused functions
+- **Cleaner architecture** - Deleted entire unused email_agent.py
+- **Better error handling** - More robust extraction process
+- **Improved maintainability** - Streamlined codebase
 
 ## 🔧 Configuration
 

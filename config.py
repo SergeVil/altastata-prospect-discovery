@@ -26,9 +26,9 @@ if not GOOGLE_API_KEY:
 VERTEX_AI_LOCATION = os.getenv("VERTEX_AI_LOCATION", "us-central1")
 
 # Search configuration
-MAX_SEARCH_RESULTS = 10
+MAX_SEARCH_RESULTS = 10  # Reverted to working value - Google Custom Search API limit
 NUM_PARALLEL_WORKERS = 6
-PAPERS_PER_BATCH = 30
+PAPERS_PER_BATCH = 30  # Reverted to working value
 
 # Business keywords for ranking papers
 BUSINESS_KEYWORDS = [
