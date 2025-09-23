@@ -265,15 +265,45 @@ class LinkedInHTMLParser:
         return ""
     
     def _extract_answer(self, section: str) -> str:
-        """Extract the contributor's answer"""
-        # Look for text content that appears to be an answer
-        # Remove HTML tags and extract clean text
+        """Extract the contributor's answer - preserve complete content"""
         import re
+        import html
         
-        # Remove HTML tags
+        # First, look for structured content in <p class="c3"><span class="c6"> and <li class="c8 c3 li-bullet-0"><span class="c6">
+        content_patterns = [
+            r'<p class="c3"><span class="c6">(.*?)</span></p>',
+            r'<li class="c8 c3 li-bullet-0"><span class="c6">(.*?)</span></li>'
+        ]
+        
+        answer_parts = []
+        
+        for pattern in content_patterns:
+            matches = re.findall(pattern, section, re.DOTALL)
+            for match in matches:
+                # Decode HTML entities (like &#128269; for 🔍)
+                decoded_text = html.unescape(match.strip())
+                if len(decoded_text) > 10:  # Substantial content
+                    # Skip obvious non-answer content
+                    skip_patterns = [
+                        'follow', 'like', 'celebrate', 'support', 'love', 'insightful', 'funny',
+                        'replies from', 'copy link', 'report contribution', 'profile photo',
+                        'contributor profile', 'google.com/url', 'Very professional structure',
+                        'replied:', 'src=', 'img alt'
+                    ]
+                    
+                    if not any(skip in decoded_text.lower() for skip in skip_patterns):
+                        answer_parts.append(decoded_text)
+        
+        # If we found structured content, use it
+        if answer_parts:
+            return ' '.join(answer_parts)
+        
+        # Fallback: General text extraction
+        # Remove HTML tags but preserve structure
         clean_text = re.sub(r'<[^>]+>', ' ', section)
-        # Clean up whitespace
-        clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+        
+        # Decode HTML entities
+        clean_text = html.unescape(clean_text)
         
         # Remove HTML artifacts and CSS properties
         clean_text = re.sub(r'[0-9]+rad\) translateZ\([0-9]+px\)', '', clean_text)
@@ -282,23 +312,45 @@ class LinkedInHTMLParser:
         clean_text = re.sub(r'title=""', '', clean_text)
         clean_text = re.sub(r'style="[^"]*"', '', clean_text)
         clean_text = re.sub(r'width:|height:|margin-|transform:|webkit-|border:|display:|overflow:', '', clean_text)
-        clean_text = re.sub(r'jpg"', '', clean_text)  # Remove image references
-        clean_text = re.sub(r'rotate\([^)]*\)', '', clean_text)  # Remove rotate functions
-        clean_text = re.sub(r'translateZ\([^)]*\)', '', clean_text)  # Remove translateZ functions
+        clean_text = re.sub(r'jpg"', '', clean_text)
+        clean_text = re.sub(r'rotate\([^)]*\)', '', clean_text)
+        clean_text = re.sub(r'translateZ\([^)]*\)', '', clean_text)
         
-        # Look for sentences that seem like answers (not just names or titles)
-        sentences = clean_text.split('.')
-        answer_sentences = []
+        # Clean up whitespace but preserve line breaks
+        clean_text = re.sub(r'[ \t]+', ' ', clean_text)  # Multiple spaces/tabs to single space
+        clean_text = re.sub(r'\n\s*\n', '\n', clean_text)  # Multiple newlines to single
         
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if len(sentence) > 20:  # Substantial content
+        # Split into lines and filter meaningful content
+        lines = [line.strip() for line in clean_text.split('\n')]
+        answer_lines = []
+        
+        for line in lines:
+            if len(line) > 15:  # Substantial content
                 # Skip obvious non-answer content
-                if not any(skip in sentence.lower() for skip in ['follow', 'like', 'celebrate', 'support', 'love', 'insightful', 'funny', 'replies from', 'copy link', 'report contribution', 'src=', 'style=', 'width:', 'height:', 'margin-', 'transform:', 'webkit-', 'border:', 'display:', 'overflow:', 'img alt', 'class=', 'translatez', 'px', 'rad']):
-                    answer_sentences.append(sentence)
+                skip_patterns = [
+                    'follow', 'like', 'celebrate', 'support', 'love', 'insightful', 'funny',
+                    'replies from', 'copy link', 'report contribution', 'src=', 'style=',
+                    'width:', 'height:', 'margin-', 'transform:', 'webkit-', 'border:',
+                    'display:', 'overflow:', 'img alt', 'class=', 'translatez', 'px', 'rad',
+                    'profile photo', 'contributor profile', 'google.com/url'
+                ]
+                
+                if not any(skip in line.lower() for skip in skip_patterns):
+                    # This looks like actual answer content
+                    answer_lines.append(line)
         
-        # Take first 3 meaningful sentences
-        return '. '.join(answer_sentences[:3]) + '.' if answer_sentences else "Contributor to AI security discussion"
+        # Join all meaningful lines with proper spacing
+        if answer_lines:
+            # Take all lines, not just first 3
+            full_answer = ' '.join(answer_lines)
+            
+            # Clean up any remaining artifacts
+            full_answer = re.sub(r'\s+', ' ', full_answer)  # Normalize spaces
+            full_answer = full_answer.strip()
+            
+            return full_answer if full_answer else "Contributor to AI security discussion"
+        else:
+            return "Contributor to AI security discussion"
     
     def _extract_likes(self, section: str) -> str:
         """Extract number of likes"""
