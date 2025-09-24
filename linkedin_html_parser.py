@@ -15,53 +15,112 @@ class LinkedInHTMLParser:
         self.contributors = []
     
     def parse_html_file(self) -> List[Dict[str, Any]]:
-        """Parse the HTML file and extract all contributors"""
+        """Parse the HTML file and extract all contributors with precise boundary detection"""
         print("🔍 Parsing LinkedIn HTML file for real contributors...")
         
         try:
             with open(self.html_file_path, 'r', encoding='utf-8') as file:
                 html_content = file.read()
             print(f"📄 HTML file read successfully, length: {len(html_content)}")
-            print(f"🔍 'Contributor profile photo' occurrences: {html_content.count('Contributor profile photo')}")
         except Exception as e:
             print(f"❌ Error reading HTML file: {e}")
             return []
         
-        # Split content by "Contributor profile photo" markers
-        contributor_sections = html_content.split('Contributor profile photo')
+        import re
         
-        print(f"📊 Found {len(contributor_sections)} contributor sections")
+        # Find all contributor patterns more precisely using LinkedIn profile links
+        contributor_pattern = r'<a[^>]*href="[^"]*linkedin\.com/in/([^?"]+)[^"]*"[^>]*>([^<]+?)(?:&#[0-9]+;|⚡)?Follow</a>'
         
-        for i, section in enumerate(contributor_sections[1:], 1):  # Skip first empty section
-            if i <= 3:  # Debug first 3 sections
-                print(f"🔍 Processing section {i}, length: {len(section)}")
-                print(f"📄 First 1000 chars: {section[:1000]}")
-                print("---")
-            
+        matches = list(re.finditer(contributor_pattern, html_content))
+        print(f"🔍 Found {len(matches)} contributor profiles with precise boundary detection")
+        
+        for i, match in enumerate(matches):
+            linkedin_id = match.group(1)
+            contributor_name = match.group(2)
+            match_start = match.start()
                 
-            if len(section) > 50:  # Only process substantial sections
-                contributor = self._extract_contributor_from_section(section, i)
-                if contributor:
-                    self.contributors.append(contributor)
-                    print(f"✅ Extracted contributor {i}: {contributor['name']}")
-                else:
-                    if i <= 3:  # Only show debug for first 3
-                        print(f"❌ Failed to extract contributor {i}")
+            if i <= 3:  # Debug first 3 contributors
+                print(f"🔍 Processing contributor {i+1}: {contributor_name}")
+                print(f"📄 LinkedIn ID: {linkedin_id}")
+            
+            # Find the content that belongs to this specific contributor
+            # Look for content between this contributor and the next one
+            next_match_start = len(html_content)  # Default to end of file
+            if i + 1 < len(matches):
+                next_match_start = matches[i + 1].start()
+            
+            # Extract the section for this contributor only
+            contributor_section = html_content[match_start:next_match_start]
+            
+            # Extract contributor data using precise section boundaries
+            contributor = self._extract_contributor_from_precise_section(
+                contributor_section, contributor_name, linkedin_id, i+1
+            )
+            
+            if contributor:
+                self.contributors.append(contributor)
+                print(f"✅ Extracted contributor {len(self.contributors)}: {contributor['name']}")
             else:
                 if i <= 3:  # Only show debug for first 3
-                    print(f"⚠️  Skipping short section {i}")
+                    print(f"❌ Failed to extract contributor {i+1}: {contributor_name}")
         
-        # Extract additional contributors from replies
-        additional_contributors = self._extract_additional_contributors_from_replies(html_content)
-        self.contributors.extend(additional_contributors)
-        
-        # Remove duplicates based on LinkedIn profile URL
+        # Remove duplicates based on LinkedIn profile URL (for cases where same person appears multiple times)
         unique_contributors = self._remove_duplicates(self.contributors)
         
         print(f"✅ Successfully extracted {len(self.contributors)} real contributors")
-        print(f"📊 Additional contributors from replies: {len(additional_contributors)}")
         print(f"📊 Unique contributors after deduplication: {len(unique_contributors)}")
         return unique_contributors
+    
+    def _extract_contributor_from_precise_section(self, section: str, contributor_name: str, linkedin_id: str, index: int) -> Dict[str, Any]:
+        """Extract contributor information from a precisely bounded section"""
+        try:
+            # Clean up contributor name
+            import re
+            import html
+            
+            # Decode HTML entities and clean up name
+            clean_name = html.unescape(contributor_name)
+            clean_name = re.sub(r'[🌟⭐💼🔒🔐📊🚀🛠️📜🔄]', '', clean_name).strip()
+            clean_name = re.sub(r'\s+', ' ', clean_name).strip()
+            
+            # Construct LinkedIn profile URL
+            linkedin_profile = f"https://linkedin.com/in/{linkedin_id}"
+            
+            # Extract title/position from the section
+            title = self._extract_title_from_section(section)
+            
+            # Clean title - decode HTML entities and remove artifacts
+            clean_title = html.unescape(title)
+            clean_title = re.sub(r'[🌟⭐💼🔒🔐📊🚀🛠️📜🔄]', '', clean_title).strip()
+            clean_title = re.sub(r'\s+', ' ', clean_title).strip()
+            
+            # Extract answer using precise boundaries
+            answer = self._extract_answer(section)
+            
+            # Extract engagement metrics
+            likes = self._extract_likes(section)
+            replies = self._extract_replies(section)
+            
+            # Create contributor data with clean title for priority detection
+            contributor = {
+                'name': clean_name,
+                'title': clean_title,
+                'linkedin_profile': linkedin_profile,
+                'answer': answer,
+                'likes': likes,
+                'replies': replies,
+                'is_high_priority': self._is_high_priority(clean_title),  # Use clean title
+                'is_business_developer': self._is_business_developer(clean_title),  # Use clean title
+                'mentions_encryption': 'encryption' in answer.lower() or 'encrypt' in answer.lower(),
+                'index': index,
+                'source': 'precise_extraction'
+            }
+            
+            return contributor
+            
+        except Exception as e:
+            print(f"❌ Error extracting contributor from precise section: {e}")
+            return None
     
     def _extract_contributor_from_section(self, section: str, index: int) -> Dict[str, Any]:
         """Extract contributor information from a section"""
@@ -277,30 +336,55 @@ class LinkedInHTMLParser:
         
         answer_parts = []
         
+        # Find the contributor's name in this section first
+        contributor_name_match = re.search(r'<a[^>]*>([^<]+?)(?:&#[0-9]+;|⚡)?Follow</a>', section)
+        contributor_section_end = None
+        
+        if contributor_name_match:
+            # Look for the next contributor or section boundary after this contributor
+            name_end_pos = contributor_name_match.end()
+            # Look for next "Contributor profile photo" or similar boundary
+            next_contributor = re.search(r'Contributor profile photo|<img[^>]*alt="Contributor profile photo"', section[name_end_pos:])
+            if next_contributor:
+                contributor_section_end = name_end_pos + next_contributor.start()
+        
         for pattern in content_patterns:
             matches = re.findall(pattern, section, re.DOTALL)
             for match in matches:
+                # If we found a boundary, only include content before it
+                if contributor_section_end:
+                    match_pos = section.find(match)
+                    if match_pos > contributor_section_end:
+                        continue  # Skip content after this contributor's section
+                
                 # Decode HTML entities (like &#128269; for 🔍)
                 decoded_text = html.unescape(match.strip())
                 if len(decoded_text) > 10:  # Substantial content
-                    # Skip obvious non-answer content
+                    # Skip obvious non-answer content (use more specific patterns)
                     skip_patterns = [
-                        'follow', 'like', 'celebrate', 'support', 'love', 'insightful', 'funny',
                         'replies from', 'copy link', 'report contribution', 'profile photo',
                         'contributor profile', 'google.com/url', 'Very professional structure',
-                        'replied:', 'src=', 'img alt'
+                        'replied:', 'src=', 'img alt', 'protecting ai models: summary',
+                        'model security', 'emerging techniques', 'like this post', 'follow me',
+                        'celebrate this', 'support this', 'love this', 'insightful post'
                     ]
                     
                     if not any(skip in decoded_text.lower() for skip in skip_patterns):
                         answer_parts.append(decoded_text)
         
-        # If we found structured content, use it
+        # If we found structured content, use it (but limit to reasonable amount)
         if answer_parts:
-            return ' '.join(answer_parts)
+            # Take only the first few parts to avoid mixed content
+            limited_parts = answer_parts[:3]  # Limit to first 3 content blocks
+            return ' '.join(limited_parts)
         
-        # Fallback: General text extraction
+        # Fallback: General text extraction with better boundaries
+        section_to_parse = section
+        if contributor_section_end:
+            section_to_parse = section[:contributor_section_end]
+        
         # Remove HTML tags but preserve structure
-        clean_text = re.sub(r'<[^>]+>', ' ', section)
+        clean_text = re.sub(r'<[^>]+>', ' ', section_to_parse)
         
         # Decode HTML entities
         clean_text = html.unescape(clean_text)
@@ -326,23 +410,25 @@ class LinkedInHTMLParser:
         
         for line in lines:
             if len(line) > 15:  # Substantial content
-                # Skip obvious non-answer content
+                # Skip obvious non-answer content and summaries
                 skip_patterns = [
                     'follow', 'like', 'celebrate', 'support', 'love', 'insightful', 'funny',
                     'replies from', 'copy link', 'report contribution', 'src=', 'style=',
                     'width:', 'height:', 'margin-', 'transform:', 'webkit-', 'border:',
                     'display:', 'overflow:', 'img alt', 'class=', 'translatez', 'px', 'rad',
-                    'profile photo', 'contributor profile', 'google.com/url'
+                    'profile photo', 'contributor profile', 'google.com/url',
+                    'protecting ai models: summary', 'model security', 'emerging techniques'
                 ]
                 
                 if not any(skip in line.lower() for skip in skip_patterns):
                     # This looks like actual answer content
                     answer_lines.append(line)
         
-        # Join all meaningful lines with proper spacing
+        # Join meaningful lines with proper spacing, but limit length
         if answer_lines:
-            # Take all lines, not just first 3
-            full_answer = ' '.join(answer_lines)
+            # Take first few lines to avoid mixed content
+            limited_lines = answer_lines[:5]  # Limit to first 5 lines
+            full_answer = ' '.join(limited_lines)
             
             # Clean up any remaining artifacts
             full_answer = re.sub(r'\s+', ' ', full_answer)  # Normalize spaces
@@ -513,7 +599,8 @@ class LinkedInHTMLParser:
         high_priority_keywords = [
             'ceo', 'cto', 'cfo', 'coo', 'cdo', 'cpo', 'cmo', 'ciso', 'cso', 'chief',
             'president', 'founder', 'co-founder', 'vp', 'vice president', 'director',
-            'head of', 'lead of', 'executive'
+            'head of', 'lead of', 'executive', 'manager', 'senior', 'principal',
+            'board member', 'advisor', 'consultant'
         ]
         return any(keyword in title_lower for keyword in high_priority_keywords)
     
@@ -532,45 +619,41 @@ class LinkedInHTMLParser:
         
         def relevance_score(contributor):
             title = contributor['title'].lower()
-            answer = contributor['answer'].lower()
             
-            # Encryption bonus (highest priority for AltaStata)
-            encryption_bonus = 20 if contributor.get('mentions_encryption', False) else 0
+            # PRIMARY SORT: High priority first (1000+ points vs 0-999)
+            if contributor.get('is_high_priority', False):
+                base_score = 1000  # HIGH PRIORITY BASE
+                
+                # Further differentiate within high priority
+                if any(keyword in title for keyword in ['ceo', 'cto', 'cfo', 'coo', 'chief', 'president']):
+                    base_score = 1100  # C-level
+                elif any(keyword in title for keyword in ['founder', 'co-founder']):
+                    base_score = 1090  # Founders
+                elif any(keyword in title for keyword in ['vp', 'vice president', 'director']):
+                    base_score = 1080  # VPs/Directors
+                elif any(keyword in title for keyword in ['manager', 'senior', 'principal']):
+                    base_score = 1070  # Senior roles
+                else:
+                    base_score = 1050  # Other high priority
+            else:
+                base_score = 500   # NON-HIGH PRIORITY BASE
             
-            # Activity bonus (active contributors are easier to reach)
+            # SECONDARY SORT: Business developers
+            if contributor.get('is_business_developer', False):
+                base_score += 20
+            
+            # TERTIARY SORT: Encryption mentions 
+            encryption_bonus = 15 if contributor.get('mentions_encryption', False) else 0
+            
+            # QUATERNARY SORT: Activity level
             activity_level = contributor.get('activity_level', 'Single Comment')
             activity_bonus = 0
             if activity_level == "Very Active":
-                activity_bonus = 15
-            elif activity_level == "Active":
                 activity_bonus = 10
+            elif activity_level == "Active":
+                activity_bonus = 5
             
-            # C-level executives (highest priority)
-            if any(keyword in title for keyword in ['ceo', 'cto', 'cfo', 'coo', 'cdo', 'cpo', 'cmo', 'ciso', 'cso', 'chief', 'president']):
-                return 100 + encryption_bonus + activity_bonus
-            
-            # Founders and co-founders (very high priority)
-            if any(keyword in title for keyword in ['founder', 'co-founder']):
-                return 95 + encryption_bonus + activity_bonus
-            
-            # VPs and Directors (high priority)
-            if any(keyword in title for keyword in ['vp', 'vice president', 'director', 'head of', 'lead of']):
-                return 90 + encryption_bonus + activity_bonus
-            
-            # Business developers (high priority for partnerships)
-            if contributor.get('is_business_developer', False):
-                return 85 + encryption_bonus + activity_bonus
-            
-            # Senior technical roles
-            if any(keyword in title for keyword in ['senior', 'lead', 'principal', 'staff', 'architect']):
-                return 70 + encryption_bonus + activity_bonus
-            
-            # Standard technical roles
-            if any(keyword in title for keyword in ['engineer', 'developer', 'analyst', 'scientist', 'researcher']):
-                return 50 + encryption_bonus + activity_bonus
-            
-            # Default score
-            return 30 + encryption_bonus + activity_bonus
+            return base_score + encryption_bonus + activity_bonus
         
         return sorted(contributors, key=relevance_score, reverse=True)
     
@@ -651,19 +734,35 @@ Serge"""
             )
             
             # Use AI to understand and extract technical approaches
-            prompt = f"""Extract 3 technical approaches from this text:
+            prompt = f"""Extract ALL technical approaches mentioned in this text:
 
 {clean_text[:1000]}
 
-Return 3 bullet points:
-• approach 1
-• approach 2  
-• approach 3"""
+IMPORTANT: 
+1. List encryption-related approaches FIRST
+2. Then list all other technical approaches  
+3. RESPECT "and" connectors (e.g., "data at rest and in transit" = keep as one approach)
+4. AVOID duplicates and overly granular splits
+5. Use this EXACT format:
+• approach one
+• approach two
+• approach three
+• etc.
+
+RULES:
+- When concepts are connected with "and" (e.g., "at rest and in transit"), keep them as ONE bullet point
+- When concepts are mentioned separately, keep them as separate bullets
+- Combine "assessments" and "compliance checks" into single "compliance monitoring" approach  
+- Group similar vendor-related activities together
+- Avoid repeating the same concept with slight word variations
+- Do NOT use bold, italic, asterisks, colons, or explanatory text
+
+Extract meaningful, distinct approaches only."""
 
             response = llm.invoke(prompt)
             ai_insights = response.content.strip()
             
-            # Return the AI response directly
+            # Return the AI response directly (no post-processing needed)
             if ai_insights and len(ai_insights) > 10:
                 return ai_insights
             else:
@@ -793,6 +892,56 @@ def main():
     print(f"📊 CSV file ready for tracking your communication status!")
     print(f"🚀 Ready for your prioritized LinkedIn outreach campaign!")
 
+
+    def test_precise_extraction(self) -> None:
+        """Test the precise extraction method for Akshay Sajeev specifically"""
+        try:
+            with open(self.html_file_path, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+            
+            import re
+            
+            # Find all contributor patterns more precisely
+            contributor_pattern = r'<a[^>]*href="[^"]*linkedin\.com/in/([^?"]+)[^"]*"[^>]*>([^<]+?)(?:&#[0-9]+;|⚡)?Follow</a>'
+            
+            matches = list(re.finditer(contributor_pattern, html_content))
+            
+            print(f"🔍 Found {len(matches)} contributor profiles with precise method")
+            
+            # Find Akshay specifically
+            for i, match in enumerate(matches):
+                linkedin_id = match.group(1)
+                contributor_name = match.group(2)
+                
+                if 'akshay' in contributor_name.lower() and 'sajeev' in contributor_name.lower():
+                    match_start = match.start()
+                    match_end = match.end()
+                    
+                    print(f"\\n=== FOUND AKSHAY WITH PRECISE METHOD ===")
+                    print(f"Contributor: {contributor_name}")
+                    print(f"LinkedIn ID: {linkedin_id}")
+                    print(f"Match position: {match_start} to {match_end}")
+                    
+                    # Find the content that belongs to this specific contributor
+                    # Look for content between this contributor and the next one
+                    next_match_start = len(html_content)  # Default to end of file
+                    if i + 1 < len(matches):
+                        next_match_start = matches[i + 1].start()
+                        next_contributor = matches[i + 1].group(2)
+                        print(f"Next contributor: {next_contributor} at position {next_match_start}")
+                    
+                    # Extract the section for this contributor only
+                    contributor_section = html_content[match_start:next_match_start]
+                    print(f"Section length: {len(contributor_section)} chars")
+                    
+                    # Extract answer from this precise section
+                    answer = self._extract_answer(contributor_section)
+                    print(f"Extracted answer length: {len(answer)} chars")
+                    print(f"Answer: {answer[:300]}...")
+                    print("=" * 60)
+            
+        except Exception as e:
+            print(f"❌ Error in precise extraction test: {e}")
 
 if __name__ == "__main__":
     main()
